@@ -60,12 +60,12 @@ kotlin {
 
 android {
     namespace = "io.github.moonggae.kmedia.sample"
-    compileSdk = 35
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
     
     defaultConfig {
         applicationId = "io.github.moonggae.kmedia.sample"
-        minSdk = 29
-        targetSdk = 35
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.compileSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
     }
