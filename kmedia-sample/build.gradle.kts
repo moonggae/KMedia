@@ -65,7 +65,6 @@ android {
     defaultConfig {
         applicationId = "io.github.moonggae.kmedia.sample"
         minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.compileSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
     }
