@@ -16,13 +16,16 @@ import platform.AVFoundation.currentTime
 import platform.AVFoundation.duration
 import platform.AVFoundation.isPlaybackBufferEmpty
 import platform.AVFoundation.isPlaybackLikelyToKeepUp
+import platform.AVFoundation.muted
 import platform.AVFoundation.pause
 import platform.AVFoundation.play
 import platform.AVFoundation.rate
 import platform.AVFoundation.seekToTime
+import platform.AVFoundation.setMuted
 import platform.AVFoundation.timeControlStatus
 import platform.CoreMedia.CMTimeMake
 import platform.CoreMedia.CMTimeMakeWithSeconds
+import platform.MediaPlayer.MPMusicPlayerController
 import platform.darwin.NSEC_PER_SEC
 
 @OptIn(ExperimentalForeignApi::class, ExperimentalForeignApi::class)
@@ -93,5 +96,21 @@ class IosPlayerStateManager(coroutineScope: CoroutineScope) {
     fun cleanup() {
 //        musicCompleteTimeObserverManager.cleanup()
         musicStatusObserverManager.cleanup()
+    }
+
+
+    val isMuted: Boolean
+        get() = player.muted
+
+    val volume: Float
+        get() = MPMusicPlayerController.applicationMusicPlayer.volume
+
+    fun setMuted(muted: Boolean) {
+        player.setMuted(muted)
+    }
+
+    fun setVolume(volume: Float) {
+        val clampedVolume = volume.coerceIn(0f, 1f)
+        MPMusicPlayerController.applicationMusicPlayer.setVolume(clampedVolume)
     }
 }

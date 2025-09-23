@@ -48,6 +48,7 @@ class PlaybackService : MediaLibraryService() {
 
         val builder = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, true)
+            .setDeviceVolumeControlEnabled(true)
             .setHandleAudioBecomingNoisy(true)
 
         if (cacheManager.enableCache) {

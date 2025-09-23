@@ -103,7 +103,22 @@ internal class PlaybackStateHandler(
             position = player.contentPosition,
             duration = player.duration,
             isShuffleOn = player.shuffleModeEnabled,
-            repeatMode = RepeatMode.valueOf(player.repeatMode)
+            repeatMode = RepeatMode.valueOf(player.repeatMode),
+            isMuted = player.isDeviceMuted,
+            volume = player.normalizedVolume
         )
     }
 }
+
+private val Player.normalizedVolume: Float
+    get() {
+        val minVolume = deviceInfo.minVolume.toFloat()
+        val maxVolume = deviceInfo.maxVolume.toFloat()
+        val normalizedVolume = if (maxVolume > minVolume) {
+            (deviceVolume - minVolume) / (maxVolume - minVolume)
+        } else {
+            0f
+        }
+
+        return normalizedVolume
+    }

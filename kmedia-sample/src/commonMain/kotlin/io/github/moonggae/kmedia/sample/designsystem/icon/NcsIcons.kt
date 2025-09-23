@@ -2,6 +2,8 @@ package io.github.moonggae.kmedia.sample.designsystem.icon
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -76,4 +78,6 @@ object NcsIcons {
     val Info = Icons.Outlined.Info
     val DownloadDone = Icons.Outlined.DownloadDone
     val CheckCircle = Icons.Outlined.CheckCircle
+    val VolumeUp = Icons.AutoMirrored.Outlined.VolumeUp
+    val VolumeOff = Icons.AutoMirrored.Outlined.VolumeOff
 }

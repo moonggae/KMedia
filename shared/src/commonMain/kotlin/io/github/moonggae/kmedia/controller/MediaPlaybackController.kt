@@ -37,4 +37,8 @@ interface MediaPlaybackController {
     fun replaceMusic(index: Int, music: Music)
 
     fun release()
+
+    fun setMuted(muted: Boolean, androidFlags: Int)
+
+    fun setVolume(volume: Float, androidFlags: Int)
 }

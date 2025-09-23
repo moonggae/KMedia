@@ -65,6 +65,7 @@ import io.github.moonggae.kmedia.sample.ui.component.PlayerRepeatButton
 import io.github.moonggae.kmedia.sample.ui.component.PlayerShuffleButton
 import io.github.moonggae.kmedia.sample.ui.component.PlayerSkipNextButton
 import io.github.moonggae.kmedia.sample.ui.component.PlayerSkipPreviousButton
+import io.github.moonggae.kmedia.sample.ui.component.PlayerVolumeButton
 import io.github.moonggae.kmedia.sample.ui.util.conditional
 import io.github.moonggae.kmedia.sample.ui.util.toTimestampMMSS
 import kmedia.kmedia_sample.generated.resources.Res
@@ -88,6 +89,8 @@ fun PlayerScreen(
     onSeekTo: (position: Long) -> Unit,
     onShuffle: (Boolean) -> Unit,
     onChangeRepeatMode: (RepeatMode) -> Unit,
+    onSetMuted: (Boolean) -> Unit,
+    onSetVolume: (Float) -> Unit,
     onUpdateMusicOrder: (Int, Int) -> Unit,
     onClickOnList: (Int) -> Unit,
     onDeleteMusicInPlaylist: (List<String>) -> Unit,
@@ -142,6 +145,8 @@ fun PlayerScreen(
                                 onSkipNext = onSkipNext,
                                 onShuffle = onShuffle,
                                 onChangeRepeatMode = onChangeRepeatMode,
+                                onSetMuted = onSetMuted,
+                                onSetVolume = onSetVolume,
                                 modifier = Modifier
                             )
 
@@ -218,7 +223,9 @@ private fun PlayerScreenBigContent(
     onSkipPrevious: () -> Unit,
     onSkipNext: () -> Unit,
     onShuffle: (Boolean) -> Unit,
-    onChangeRepeatMode: (RepeatMode) -> Unit
+    onChangeRepeatMode: (RepeatMode) -> Unit,
+    onSetMuted: (Boolean) -> Unit,
+    onSetVolume: (Float) -> Unit,
 ) {
     val containerSize = getContainerSize()
     val screenWidth = remember { containerSize.width.dp }
@@ -271,12 +278,16 @@ private fun PlayerScreenBigContent(
                 hasNext = playbackState.hasNext,
                 repeatMode = playbackState.repeatMode,
                 isOnShuffle = playbackState.isShuffleOn,
+                isMuted = playbackState.isMuted,
+                volume = playbackState.volume,
                 onPlay = onPlay,
                 onPause = onPause,
                 onSkipPrevious = onSkipPrevious,
                 onSkipNext = onSkipNext,
                 onShuffle = onShuffle,
                 onChangeRepeatMode = onChangeRepeatMode,
+                onSetMuted = onSetMuted,
+                onSetVolume = onSetVolume,
                 modifier = Modifier.padding(
                     start = 20.dp,
                     end = 20.dp,
@@ -294,59 +305,86 @@ fun PlayerScreenBigController(
     isOnShuffle: Boolean,
     repeatMode: RepeatMode,
     hasNext: Boolean,
+    isMuted: Boolean,
+    volume: Float = 1.0f,
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSkipNext: () -> Unit,
     onShuffle: (Boolean) -> Unit,
     onChangeRepeatMode: (RepeatMode) -> Unit,
+    onSetMuted: (Boolean) -> Unit,
+    onSetVolume: (Float) -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        PlayerShuffleButton(
-            isOnShuffle = isOnShuffle,
-            onClick = { onShuffle(!isOnShuffle) }
-        )
 
-        PlayerSkipPreviousButton(
-            onClick = onSkipPrevious
-        )
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = modifier.fillMaxWidth(),
+        ) {
+            PlayerShuffleButton(
+                isOnShuffle = isOnShuffle,
+                onClick = { onShuffle(!isOnShuffle) }
+            )
 
-        PlayerPlayingButton(
-            playingStatus = playingStatus,
-            onPlay = onPlay,
-            onPause = onPause
-        )
+            PlayerSkipPreviousButton(
+                onClick = onSkipPrevious
+            )
 
-        PlayerSkipNextButton(
-            hasNext = hasNext,
-            onClick = onSkipNext
-        )
+            PlayerPlayingButton(
+                playingStatus = playingStatus,
+                onPlay = onPlay,
+                onPause = onPause
+            )
 
-        PlayerRepeatButton(
-            repeatMode = repeatMode,
-            onClick = { onChangeRepeatMode(repeatMode.next()) }
-        )
+            PlayerSkipNextButton(
+                hasNext = hasNext,
+                onClick = onSkipNext
+            )
+
+            PlayerRepeatButton(
+                repeatMode = repeatMode,
+                onClick = { onChangeRepeatMode(repeatMode.next()) }
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                .fillMaxWidth()
+        ) {
+            PlayerVolumeButton(
+                isMuted = isMuted,
+                onClick = onSetMuted
+            )
+
+            PlayerVolumeSlider(
+                volume = if (isMuted) 0f else volume,
+                onVolumeChange = onSetVolume,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(24.dp)
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerPositionProgressBar(
+fun PlayerVolumeSlider(
     modifier: Modifier = Modifier,
-    duration: Long,
-    position: Long,
-    onSeekTo: (position: Long) -> Unit,
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
 ) {
     var isUserDrag by remember { mutableStateOf(false) }
-    var currentPosition by remember { mutableFloatStateOf(0f) }
+    var currentVolume by remember { mutableFloatStateOf(volume) }
 
-    LaunchedEffect(position) {
+    LaunchedEffect(volume) {
         if (!isUserDrag) {
-            currentPosition = position.toFloat()
+            currentVolume = volume
         }
     }
 
@@ -357,75 +395,50 @@ fun PlayerPositionProgressBar(
         inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    val thumbSize = 16.dp
+    val thumbSize = 12.dp
 
-    Column(modifier) {
-        Slider(
-            value = currentPosition,
-            onValueChange = { value ->
-                if (isUserDrag) {
-                    currentPosition = value
-                }
-            },
-            valueRange = 0f..duration.coerceAtLeast(0).toFloat(),
-            onValueChangeFinished = {
-                if (isUserDrag) {
-                    onSeekTo(currentPosition.toLong())
-                    isUserDrag = false
-                }
-            },
-            colors = colors,
-            interactionSource = interactionSource,
-            thumb = {
-                SliderDefaults.Thumb(
-                    interactionSource = remember { MutableInteractionSource() },
-                    colors = colors,
-                    thumbSize = DpSize(thumbSize, thumbSize)
-                )
-            },
-            track = { sliderState ->
-                SliderDefaults.Track(
-                    sliderState = sliderState,
-                    colors = colors,
-                    enabled = true,
-                    drawStopIndicator = null,
-                    thumbTrackGapSize = 0.dp,
-                    modifier = Modifier.height(4.dp)
-                )
-            },
-            modifier = Modifier
-                .height(16.dp)
-                .pointerInput(isUserDrag) {
-                    awaitPointerEventScope {
-                        try {
-                            awaitFirstDown(requireUnconsumed = false)
-                            isUserDrag = true
-                        } catch (_: Exception) {
-                        }
+    Slider(
+        value = currentVolume,
+        onValueChange = { value ->
+            currentVolume = value
+            if (isUserDrag) {
+                onVolumeChange(value)
+            }
+        },
+        valueRange = 0f..1f,
+        onValueChangeFinished = {
+            isUserDrag = false
+        },
+        colors = colors,
+        interactionSource = interactionSource,
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = remember { MutableInteractionSource() },
+                colors = colors,
+                thumbSize = DpSize(thumbSize, thumbSize)
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                colors = colors,
+                enabled = true,
+                drawStopIndicator = null,
+                thumbTrackGapSize = 0.dp,
+                modifier = Modifier.height(2.dp)
+            )
+        },
+        modifier = modifier
+            .pointerInput(isUserDrag) {
+                awaitPointerEventScope {
+                    try {
+                        awaitFirstDown(requireUnconsumed = false)
+                        isUserDrag = true
+                    } catch (_: Exception) {
                     }
                 }
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .fillMaxWidth()
-        ) {
-            Text(
-                text = position.toTimestampMMSS(),
-                style = NcsTypography.Player.timestamp.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-            Text(
-                text = duration.toTimestampMMSS(),
-                style = NcsTypography.Player.timestamp.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        }
-    }
+            }
+    )
 }
 
 @Composable
@@ -526,5 +539,100 @@ fun PlayerScreenSmallController(
             hasNext = hasNext,
             onClick = onSkipNext
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerPositionProgressBar(
+    modifier: Modifier = Modifier,
+    duration: Long,
+    position: Long,
+    onSeekTo: (position: Long) -> Unit,
+) {
+    var isUserDrag by remember { mutableStateOf(false) }
+    var currentPosition by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(position) {
+        if (!isUserDrag) {
+            currentPosition = position.toFloat()
+        }
+    }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val colors = SliderDefaults.colors(
+        activeTrackColor = MaterialTheme.colorScheme.onSurface,
+        thumbColor = MaterialTheme.colorScheme.onSurface,
+        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    val thumbSize = 16.dp
+
+    Column(modifier) {
+        Slider(
+            value = currentPosition,
+            onValueChange = { value ->
+                if (isUserDrag) {
+                    currentPosition = value
+                }
+            },
+            valueRange = 0f..duration.coerceAtLeast(0).toFloat(),
+            onValueChangeFinished = {
+                if (isUserDrag) {
+                    onSeekTo(currentPosition.toLong())
+                    isUserDrag = false
+                }
+            },
+            colors = colors,
+            interactionSource = interactionSource,
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = remember { MutableInteractionSource() },
+                    colors = colors,
+                    thumbSize = DpSize(thumbSize, thumbSize)
+                )
+            },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    colors = colors,
+                    enabled = true,
+                    drawStopIndicator = null,
+                    thumbTrackGapSize = 0.dp,
+                    modifier = Modifier.height(4.dp)
+                )
+            },
+            modifier = Modifier
+                .height(16.dp)
+                .pointerInput(isUserDrag) {
+                    awaitPointerEventScope {
+                        try {
+                            awaitFirstDown(requireUnconsumed = false)
+                            isUserDrag = true
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = position.toTimestampMMSS(),
+                style = NcsTypography.Player.timestamp.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+            Text(
+                text = duration.toTimestampMMSS(),
+                style = NcsTypography.Player.timestamp.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
     }
 }

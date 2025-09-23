@@ -119,6 +119,19 @@ internal class PlatformMediaPlaybackController(
         controller.release()
     }
 
+    override fun setMuted(muted: Boolean, androidFlags: Int) = executeAfterPrepare { controller ->
+        controller.setDeviceMuted(muted, androidFlags)
+    }
+
+    override fun setVolume(volume: Float, androidFlags: Int) = executeAfterPrepare { controller ->
+        println(controller.deviceInfo.minVolume)
+        val minVolume = controller.deviceInfo.minVolume
+        val maxVolume = controller.deviceInfo.maxVolume
+        val scaledVolume = minVolume + (volume * (maxVolume - minVolume)).toInt()
+        val boundedVolume = scaledVolume.coerceIn(minVolume, maxVolume)
+        controller.setDeviceVolume(boundedVolume, androidFlags)
+    }
+
     private inline fun executeAfterPrepare(crossinline action: suspend (MediaController) -> Unit) {
         scope.launch {
             val controller = activeControllerDeferred.await()

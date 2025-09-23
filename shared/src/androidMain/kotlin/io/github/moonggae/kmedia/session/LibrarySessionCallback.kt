@@ -2,6 +2,9 @@ package io.github.moonggae.kmedia.session
 
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS
+import androidx.media3.common.Player.COMMAND_GET_DEVICE_VOLUME
+import androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
@@ -38,7 +41,13 @@ internal class LibrarySessionCallback(
             .remove(SessionCommand.COMMAND_CODE_LIBRARY_GET_SEARCH_RESULT)
             .build()
 
-        val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon().build()
+        val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon().apply {
+            addAll(
+                COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
+                COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
+                COMMAND_GET_DEVICE_VOLUME,
+            )
+        }.build()
 
         return when {
             session.isMediaNotificationController(controller) ->
@@ -48,7 +57,10 @@ internal class LibrarySessionCallback(
                     .setCustomLayout(customLayoutHandler.createCustomLayout(session))
                     .build()
 
-            else -> AcceptedResultBuilder(session).build()
+            else -> AcceptedResultBuilder(session)
+                .setAvailablePlayerCommands(playerCommands)
+                .setAvailableSessionCommands(sessionCommands)
+                .build()
         }
     }
 

@@ -168,3 +168,19 @@ fun PlayerRepeatButton(
         onClick = onClick
     )
 }
+
+@Composable
+fun PlayerVolumeButton(
+    type: PlayerControllerType = PlayerControllerType.Big,
+    isMuted: Boolean,
+    onClick: (Boolean) -> Unit
+) {
+    PlayerButton(
+        icon = if (isMuted) NcsIcons.VolumeOff else NcsIcons.VolumeUp,
+        contentDescription = "Volume button",
+        tint = MaterialTheme.colorScheme.onSurface,
+        size = type.size,
+        iconPadding = type.iconPadding,
+        onClick = { onClick(!isMuted) }
+    )
+}

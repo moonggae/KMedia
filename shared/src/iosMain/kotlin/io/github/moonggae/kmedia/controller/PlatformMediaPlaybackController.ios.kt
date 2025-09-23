@@ -322,6 +322,16 @@ internal class PlatformMediaPlaybackController(
         stop()
     }
 
+    override fun setMuted(muted: Boolean, androidFlags: Int) {
+        playerStateManager.setMuted(muted)
+        updatePlaybackState()
+    }
+
+    override fun setVolume(volume: Float, androidFlags: Int) {
+        playerStateManager.setVolume(volume)
+        updatePlaybackState()
+    }
+
     private fun updatePlaybackState() {
         val currentSeconds = playerStateManager.getCurrentPosition()
         val durationSeconds = playerStateManager.getDuration()
@@ -334,7 +344,9 @@ internal class PlatformMediaPlaybackController(
             position = currentSeconds * 1000,
             duration = durationSeconds * 1000,
             isShuffleOn = playlistManager.isShuffleOn,
-            repeatMode = playlistManager.repeatMode
+            repeatMode = playlistManager.repeatMode,
+            isMuted = playerStateManager.isMuted,
+            volume = playerStateManager.volume
         )
         playbackStateManager.playbackState = state
 

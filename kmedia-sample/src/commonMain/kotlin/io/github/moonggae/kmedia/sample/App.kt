@@ -82,6 +82,8 @@ fun App() {
                     musics = musics.reorder(prev, current)
                 },
                 onClickOnList = { kMedia.player.skipTo(it) },
+                onSetMuted = { kMedia.player.setMuted(it, 1) },
+                onSetVolume = { kMedia.player.setVolume(it, 1) },
                 onDeleteMusicInPlaylist = { deleteMusicIds ->
                     musics = musics.filterNot { deleteMusicIds.contains(it.id) }
                     kMedia.player.removeMusics(*deleteMusicIds.toTypedArray())
