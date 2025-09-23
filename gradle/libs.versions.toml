@@ -1,7 +1,7 @@
 [versions]
 android-compileSdk = "36"
-android-minSdk = "29"
-publish = "0.0.5"
+android-minSdk = "28"
+publish = "0.0.6"
 
 agp = "8.13.0"
 kotlin = "2.2.20"
