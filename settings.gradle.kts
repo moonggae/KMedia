@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "KMedia"
 include(":shared")
 include(":kmedia-sample")
+include(":kmedia-sample-android")
