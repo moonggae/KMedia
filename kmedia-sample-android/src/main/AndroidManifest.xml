@@ -13,7 +13,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
         <activity
-            android:name=".MainActivity"
+            android:name="io.github.moonggae.kmedia.sample.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,7 +21,8 @@
             </intent-filter>
         </activity>
 
-        <service android:name="io.github.moonggae.kmedia.session.PlaybackService"
+        <service
+            android:name="io.github.moonggae.kmedia.session.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

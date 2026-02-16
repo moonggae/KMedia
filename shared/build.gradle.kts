@@ -3,14 +3,18 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinCocoapods)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.mavenPublish)
 }
 
 kotlin {
-    androidTarget {
+    androidLibrary {
+        namespace = "io.github.moonggae.kmedia"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
         compilations.all {
             compileTaskProvider.configure {
                 compilerOptions {
@@ -70,19 +74,6 @@ kotlin {
         all {
             languageSettings.optIn("kotlin.uuid.ExperimentalUuidApi")
         }
-    }
-}
-
-android {
-    namespace = "io.github.moonggae.kmedia"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
 
