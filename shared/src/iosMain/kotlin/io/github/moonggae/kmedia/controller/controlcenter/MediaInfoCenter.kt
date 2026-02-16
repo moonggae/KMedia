@@ -23,6 +23,7 @@ import platform.MediaPlayer.MPMediaItemPropertyTitle
 import platform.MediaPlayer.MPNowPlayingInfoCenter
 import platform.MediaPlayer.MPNowPlayingInfoPropertyDefaultPlaybackRate
 import platform.MediaPlayer.MPNowPlayingInfoPropertyElapsedPlaybackTime
+import platform.MediaPlayer.MPNowPlayingInfoPropertyExternalContentIdentifier
 import platform.MediaPlayer.MPNowPlayingInfoPropertyIsLiveStream
 import platform.MediaPlayer.MPNowPlayingInfoPropertyPlaybackRate
 import platform.UIKit.UIImage
@@ -48,6 +49,7 @@ internal class MediaInfoCenter(
         if (isNewMusic(music.id, nowPlayingInfo)) {
             nowPlayingInfo.apply {
                 put(MPMediaItemPropertyPersistentID, music.id.hashCode())
+                put(MPNowPlayingInfoPropertyExternalContentIdentifier, music.id)
                 music.coverUrl?.let {
                     setArtwork(it)
                 }

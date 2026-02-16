@@ -66,10 +66,9 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        session = MediaLibrarySession
-            .Builder(this, player!!, sessionCallback)
-//            .setSessionActivity(sessionActivity)
-            .build()
+        val sessionBuilder = MediaLibrarySession.Builder(this, player!!, sessionCallback)
+        createSessionActivityPendingIntent()?.let(sessionBuilder::setSessionActivity)
+        session = sessionBuilder.build()
 
         player?.let {
             customLayoutUpdateListener.attachTo(session, it)
@@ -90,4 +89,22 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = session
+
+    private fun createSessionActivityPendingIntent(): PendingIntent? {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            ?: return null
+
+        launchIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+
+        return PendingIntent.getActivity(
+            this,
+            REQUEST_CODE_SESSION_ACTIVITY,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private companion object {
+        const val REQUEST_CODE_SESSION_ACTIVITY = 1
+    }
 }

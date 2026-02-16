@@ -9,7 +9,13 @@ import io.github.moonggae.kmedia.cache.NoOpCacheStatusListener
 import io.github.moonggae.kmedia.controller.MediaPlaybackController
 import io.github.moonggae.kmedia.di.IsolatedKoinContext
 import io.github.moonggae.kmedia.model.PlaybackState
+import io.github.moonggae.kmedia.sleep.DefaultSleepTimerController
+import io.github.moonggae.kmedia.sleep.SleepTimerController
 import io.github.moonggae.kmedia.state.PlaybackStateManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.module.Module
 
@@ -17,9 +23,23 @@ import org.koin.core.module.Module
 class KMedia private constructor(
     internal val context: Any, // Context for Android
 ) {
+    private val sleepTimerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val player: MediaPlaybackController by lazy { IsolatedKoinContext.koin.inject<MediaPlaybackController>().value }
     val cache: MusicCacheRepository by lazy { IsolatedKoinContext.koin.inject<MusicCacheRepository>().value }
     val playbackState: StateFlow<PlaybackState> = PlaybackStateManager.flow
+    val sleepTimer: SleepTimerController by lazy {
+        DefaultSleepTimerController(
+            mediaPlaybackController = player,
+            playbackState = playbackState,
+            scope = sleepTimerScope
+        )
+    }
+
+    fun release() {
+        player.release()
+        sleepTimerScope.cancel()
+    }
 
     class Builder {
         private var cacheEnabled: Boolean = false
