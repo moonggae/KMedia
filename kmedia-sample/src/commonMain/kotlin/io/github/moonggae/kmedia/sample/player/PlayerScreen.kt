@@ -51,6 +51,7 @@ import coil3.size.Size
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
+import io.github.moonggae.kmedia.sleep.SleepTimerState
 import io.github.moonggae.kmedia.sample.designsystem.component.ListItemCardDefaults
 import io.github.moonggae.kmedia.sample.designsystem.component.collapsedAnchor
 import io.github.moonggae.kmedia.sample.designsystem.component.rememberBottomSheetState
@@ -81,6 +82,7 @@ fun PlayerScreen(
     musics: List<SampleMusic>,
     currentMusic: SampleMusic?,
     playbackState: PlaybackState,
+    sleepTimerState: SleepTimerState,
     minHeight: Dp = PLAYER_SMALL_HEIGHT_DEFAULT,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -91,6 +93,9 @@ fun PlayerScreen(
     onChangeRepeatMode: (RepeatMode) -> Unit,
     onSetMuted: (Boolean) -> Unit,
     onSetVolume: (Float) -> Unit,
+    onSetSleepTimer: (Long) -> Unit,
+    onSetSleepTimerUntilCurrentTrackEnd: () -> Unit,
+    onCancelSleepTimer: () -> Unit,
     onUpdateMusicOrder: (Int, Int) -> Unit,
     onClickOnList: (Int) -> Unit,
     onDeleteMusicInPlaylist: (List<String>) -> Unit,
@@ -205,6 +210,10 @@ fun PlayerScreen(
             onMusicOrderChanged = onUpdateMusicOrder,
             onClickMusic = onClickOnList,
             onDeleteMusicInList = onDeleteMusicInPlaylist,
+            sleepTimerState = sleepTimerState,
+            onSetSleepTimer = onSetSleepTimer,
+            onSetSleepTimerUntilCurrentTrackEnd = onSetSleepTimerUntilCurrentTrackEnd,
+            onCancelSleepTimer = onCancelSleepTimer,
             bottomSheetState = bottomSheetState
         )
     }

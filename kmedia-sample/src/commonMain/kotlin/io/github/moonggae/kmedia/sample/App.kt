@@ -2,6 +2,7 @@ package io.github.moonggae.kmedia.sample
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,8 +42,15 @@ fun App() {
 
 
     val playbackState by kMedia.playbackState.collectAsState()
+    val sleepTimerState by kMedia.sleepTimer.state.collectAsState()
     val currentMusic = remember(playbackState.music) {
         musics.find { it.id == playbackState.music?.id }
+    }
+
+    DisposableEffect(kMedia) {
+        onDispose {
+            kMedia.release()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -70,6 +78,7 @@ fun App() {
                 musics = musics,
                 currentMusic = currentMusic,
                 playbackState = playbackState,
+                sleepTimerState = sleepTimerState,
                 onPlay = { kMedia.player.play() },
                 onPause = { kMedia.player.pause() },
                 onSkipPrevious = { kMedia.player.previous() },
@@ -84,6 +93,9 @@ fun App() {
                 onClickOnList = { kMedia.player.skipTo(it) },
                 onSetMuted = { kMedia.player.setMuted(it, 1) },
                 onSetVolume = { kMedia.player.setVolume(it, 1) },
+                onSetSleepTimer = { kMedia.sleepTimer.start(it) },
+                onSetSleepTimerUntilCurrentTrackEnd = { kMedia.sleepTimer.startUntilCurrentTrackEnd() },
+                onCancelSleepTimer = { kMedia.sleepTimer.cancel() },
                 onDeleteMusicInPlaylist = { deleteMusicIds ->
                     musics = musics.filterNot { deleteMusicIds.contains(it.id) }
                     kMedia.player.removeMusics(*deleteMusicIds.toTypedArray())
