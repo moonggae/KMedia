@@ -1,8 +1,9 @@
+import io.github.frankois944.spmForKmp.swiftPackageConfig
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinCocoapods)
+    alias(libs.plugins.spmForKmp)
     alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
@@ -32,16 +33,8 @@ kotlin {
         iosTarget.compilations.getByName("main") {
             val nskeyvalueobserving by cinterops.creating
         }
-    }
-
-    cocoapods {
-        summary = "Some description for the Shared Module"
-        homepage = "Link to the Shared Module homepage"
-        version = "1.0"
-        ios.deploymentTarget = "16.0"
-        framework {
-            baseName = "shared"
-            isStatic = true
+        iosTarget.swiftPackageConfig("nativeBridge") {
+            minIos = "16.0"
         }
     }
     
