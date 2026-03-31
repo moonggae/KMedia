@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +28,45 @@ import io.github.moonggae.kmedia.sample.designsystem.theme.NcsTypography
 import io.github.moonggae.kmedia.sample.ui.util.conditional
 
 @Composable
-fun PlayerMenuSleepTimerTabView(
+internal fun PlayerMenuSleepTimerDialog(
+    sleepTimerState: SleepTimerState,
+    onSetSleepTimer: (Long) -> Unit,
+    onSetSleepTimerUntilCurrentTrackEnd: () -> Unit,
+    onCancelSleepTimer: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Text(
+                text = "Sleep Timer",
+                style = NcsTypography.Dialog.title.copy(color = MaterialTheme.colorScheme.onSurface)
+            )
+        },
+        text = {
+            PlayerMenuSleepTimerContent(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
+                sleepTimerState = sleepTimerState,
+                onSetSleepTimer = onSetSleepTimer,
+                onSetSleepTimerUntilCurrentTrackEnd = onSetSleepTimerUntilCurrentTrackEnd,
+                onCancelSleepTimer = onCancelSleepTimer
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(
+                    text = "Done",
+                    style = NcsTypography.Dialog.button
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun PlayerMenuSleepTimerContent(
     modifier: Modifier = Modifier,
     sleepTimerState: SleepTimerState,
     onSetSleepTimer: (Long) -> Unit,
@@ -161,6 +202,19 @@ private fun SleepTimerState.toStatusText(): String = when (mode) {
             "Playback will stop at the end of the current track."
         } else {
             "Playback will stop at track end ($remaining left)."
+        }
+    }
+}
+
+internal fun SleepTimerState.toTabLabel(): String = when (mode) {
+    SleepTimerMode.OFF -> "Sleep Timer"
+    SleepTimerMode.DURATION -> "Sleep Timer\n${remainingMs?.toDurationLabel() ?: "--:--"}"
+    SleepTimerMode.CURRENT_TRACK_END -> {
+        val remaining = remainingMs?.toDurationLabel()
+        if (remaining == null) {
+            "Sleep Timer\nTrack end"
+        } else {
+            "Sleep Timer\n$remaining"
         }
     }
 }

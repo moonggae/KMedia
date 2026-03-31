@@ -8,7 +8,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -38,7 +38,7 @@ internal fun PlayerMenuBottomSheet(
     bottomSheetState: BottomSheetState,
 ) {
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var isSleepTimerDialogVisible by remember { mutableStateOf(false) }
 
     BottomSheet(
         state = bottomSheetState,
@@ -47,58 +47,71 @@ internal fun PlayerMenuBottomSheet(
     ) {
         Column {
             Row {
-                PlayerMenuTab.entries.forEachIndexed { index, tab ->
-                    Tab(
-                        modifier = Modifier.weight(1f),
-                        selected = selectedTab == index,
-                        onClick = {
-                            selectedTab = index
-                            scope.launch {
-                                bottomSheetState.expandSoft()
-                            }
+                Tab(
+                    modifier = Modifier.weight(1f),
+                    selected = true,
+                    onClick = {
+                        scope.launch {
+                            bottomSheetState.expandSoft()
                         }
-                    ) {
-                        Text(
-                            text = tab.label,
-                            style = NcsTypography.Player.bottomMenuText.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            ),
-                            modifier = Modifier.padding(16.dp)
-                        )
                     }
-                }
-            }
-
-            when (selectedTab) {
-                0 -> {
-                    PlayerMenuPlaylistTabView(
-                        modifier = Modifier.alpha(bottomSheetState.progress),
-                        musics = musics,
-                        currentMusic = currentMusic,
-                        onMusicOrderChanged = onMusicOrderChanged,
-                        onPlayItem = onClickMusic,
-                        onDelete = onDeleteMusicInList,
-                        nestedScrollConnection = bottomSheetState.preUpPostDownNestedScrollConnection
+                ) {
+                    Text(
+                        text = "Playlist",
+                        style = NcsTypography.Player.bottomMenuText.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
 
-                1 -> {
-                    PlayerMenuSleepTimerTabView(
-                        modifier = Modifier.alpha(bottomSheetState.progress),
-                        sleepTimerState = sleepTimerState,
-                        onSetSleepTimer = onSetSleepTimer,
-                        onSetSleepTimerUntilCurrentTrackEnd = onSetSleepTimerUntilCurrentTrackEnd,
-                        onCancelSleepTimer = onCancelSleepTimer,
-                        nestedScrollConnection = bottomSheetState.preUpPostDownNestedScrollConnection
+                Tab(
+                    modifier = Modifier.weight(1f),
+                    selected = false,
+                    onClick = {
+                        isSleepTimerDialogVisible = true
+                    }
+                ) {
+                    Text(
+                        text = sleepTimerState.toTabLabel(),
+                        style = NcsTypography.Player.bottomMenuText.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
+
+            PlayerMenuPlaylistTabView(
+                modifier = Modifier.alpha(bottomSheetState.progress),
+                musics = musics,
+                currentMusic = currentMusic,
+                onMusicOrderChanged = onMusicOrderChanged,
+                onPlayItem = onClickMusic,
+                onDelete = onDeleteMusicInList,
+                nestedScrollConnection = bottomSheetState.preUpPostDownNestedScrollConnection
+            )
         }
     }
-}
 
-private enum class PlayerMenuTab(val label: String) {
-    Playlist("Playlist"),
-    SleepTimer("Sleep Timer")
+    if (isSleepTimerDialogVisible) {
+        PlayerMenuSleepTimerDialog(
+            sleepTimerState = sleepTimerState,
+            onSetSleepTimer = {
+                onSetSleepTimer(it)
+                isSleepTimerDialogVisible = false
+            },
+            onSetSleepTimerUntilCurrentTrackEnd = {
+                onSetSleepTimerUntilCurrentTrackEnd()
+                isSleepTimerDialogVisible = false
+            },
+            onCancelSleepTimer = {
+                onCancelSleepTimer()
+                isSleepTimerDialogVisible = false
+            },
+            onDismissRequest = { isSleepTimerDialogVisible = false }
+        )
+    }
 }
