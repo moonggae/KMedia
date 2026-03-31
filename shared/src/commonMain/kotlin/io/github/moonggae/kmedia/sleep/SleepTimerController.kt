@@ -4,7 +4,6 @@ import io.github.moonggae.kmedia.controller.MediaPlaybackController
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.TIME_UNSET
 import io.github.moonggae.kmedia.model.PlayingStatus
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -160,11 +159,6 @@ internal class DefaultSleepTimerController(
             }
 
             mediaPlaybackController.pause()
-        } catch (exception: CancellationException) {
-            if (shouldFade) {
-                mediaPlaybackController.setVolume(originalVolume, ANDROID_VOLUME_FLAGS)
-            }
-            throw exception
         } finally {
             if (shouldFade) {
                 mediaPlaybackController.setVolume(originalVolume, ANDROID_VOLUME_FLAGS)

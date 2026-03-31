@@ -37,8 +37,8 @@ class KMedia private constructor(
     }
 
     fun release() {
-        player.release()
         sleepTimerScope.cancel()
+        player.release()
     }
 
     class Builder {
