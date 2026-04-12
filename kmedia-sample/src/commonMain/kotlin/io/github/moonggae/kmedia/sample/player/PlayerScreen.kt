@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -51,6 +53,7 @@ import coil3.size.Size
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
+import io.github.moonggae.kmedia.sample.designsystem.icon.NcsIcons
 import io.github.moonggae.kmedia.sleep.SleepTimerState
 import io.github.moonggae.kmedia.sample.designsystem.component.ListItemCardDefaults
 import io.github.moonggae.kmedia.sample.designsystem.component.collapsedAnchor
@@ -102,6 +105,7 @@ fun PlayerScreen(
 ) {
     val scope = rememberCoroutineScope()
     val insetPadding = LocalWindowInsetPadding.current
+    var isSleepTimerDialogVisible by remember { mutableStateOf(false) }
 
     val maxHeight = playerScreenHeight()
 
@@ -143,6 +147,7 @@ fun PlayerScreen(
                                 music = currentMusic,
                                 draggableStatePercentage = 1 - bottomSheetState.progress,
                                 playbackState = playbackState,
+                                sleepTimerState = sleepTimerState,
                                 onSeekTo = onSeekTo,
                                 onPlay = onPlay,
                                 onPause = onPause,
@@ -152,6 +157,7 @@ fun PlayerScreen(
                                 onChangeRepeatMode = onChangeRepeatMode,
                                 onSetMuted = onSetMuted,
                                 onSetVolume = onSetVolume,
+                                onSleepTimerClick = { isSleepTimerDialogVisible = true },
                                 modifier = Modifier
                             )
 
@@ -210,11 +216,26 @@ fun PlayerScreen(
             onMusicOrderChanged = onUpdateMusicOrder,
             onClickMusic = onClickOnList,
             onDeleteMusicInList = onDeleteMusicInPlaylist,
-            sleepTimerState = sleepTimerState,
-            onSetSleepTimer = onSetSleepTimer,
-            onSetSleepTimerUntilCurrentTrackEnd = onSetSleepTimerUntilCurrentTrackEnd,
-            onCancelSleepTimer = onCancelSleepTimer,
             bottomSheetState = bottomSheetState
+        )
+    }
+
+    if (isSleepTimerDialogVisible) {
+        PlayerMenuSleepTimerDialog(
+            sleepTimerState = sleepTimerState,
+            onSetSleepTimer = {
+                onSetSleepTimer(it)
+                isSleepTimerDialogVisible = false
+            },
+            onSetSleepTimerUntilCurrentTrackEnd = {
+                onSetSleepTimerUntilCurrentTrackEnd()
+                isSleepTimerDialogVisible = false
+            },
+            onCancelSleepTimer = {
+                onCancelSleepTimer()
+                isSleepTimerDialogVisible = false
+            },
+            onDismissRequest = { isSleepTimerDialogVisible = false }
         )
     }
 }
@@ -226,6 +247,7 @@ private fun PlayerScreenBigContent(
     draggableStatePercentage: Float,
     music: SampleMusic?,
     playbackState: PlaybackState,
+    sleepTimerState: SleepTimerState = SleepTimerState(),
     onSeekTo: (position: Long) -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -235,6 +257,7 @@ private fun PlayerScreenBigContent(
     onChangeRepeatMode: (RepeatMode) -> Unit,
     onSetMuted: (Boolean) -> Unit,
     onSetVolume: (Float) -> Unit,
+    onSleepTimerClick: () -> Unit = {},
 ) {
     val containerSize = getContainerSize()
     val screenWidth = remember { containerSize.width.dp }
@@ -289,6 +312,7 @@ private fun PlayerScreenBigContent(
                 isOnShuffle = playbackState.isShuffleOn,
                 isMuted = playbackState.isMuted,
                 volume = playbackState.volume,
+                sleepTimerState = sleepTimerState,
                 onPlay = onPlay,
                 onPause = onPause,
                 onSkipPrevious = onSkipPrevious,
@@ -297,6 +321,7 @@ private fun PlayerScreenBigContent(
                 onChangeRepeatMode = onChangeRepeatMode,
                 onSetMuted = onSetMuted,
                 onSetVolume = onSetVolume,
+                onSleepTimerClick = onSleepTimerClick,
                 modifier = Modifier.padding(
                     start = 20.dp,
                     end = 20.dp,
@@ -316,6 +341,7 @@ fun PlayerScreenBigController(
     hasNext: Boolean,
     isMuted: Boolean,
     volume: Float = 1.0f,
+    sleepTimerState: SleepTimerState = SleepTimerState(),
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -324,13 +350,14 @@ fun PlayerScreenBigController(
     onChangeRepeatMode: (RepeatMode) -> Unit,
     onSetMuted: (Boolean) -> Unit,
     onSetVolume: (Float) -> Unit,
+    onSleepTimerClick: () -> Unit = {},
 ) {
 
-    Column {
+    Column(modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             PlayerShuffleButton(
                 isOnShuffle = isOnShuffle,
@@ -377,6 +404,18 @@ fun PlayerScreenBigController(
                     .weight(1f)
                     .height(24.dp)
             )
+
+            IconButton(onClick = onSleepTimerClick) {
+                Icon(
+                    imageVector = NcsIcons.SleepTimer,
+                    contentDescription = "Sleep Timer",
+                    tint = if (sleepTimerState.isActive) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
         }
     }
 }

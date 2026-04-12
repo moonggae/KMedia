@@ -206,19 +206,6 @@ private fun SleepTimerState.toStatusText(): String = when (mode) {
     }
 }
 
-internal fun SleepTimerState.toTabLabel(): String = when (mode) {
-    SleepTimerMode.OFF -> "Sleep Timer"
-    SleepTimerMode.DURATION -> "Sleep Timer\n${remainingMs?.toDurationLabel() ?: "--:--"}"
-    SleepTimerMode.CURRENT_TRACK_END -> {
-        val remaining = remainingMs?.toDurationLabel()
-        if (remaining == null) {
-            "Sleep Timer\nTrack end"
-        } else {
-            "Sleep Timer\n$remaining"
-        }
-    }
-}
-
 private fun Long.toDurationLabel(): String {
     val clampedSeconds = (this / 1_000L).coerceAtLeast(0L)
     val hours = clampedSeconds / 3_600L

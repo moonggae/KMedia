@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PlayCircleOutline
 import androidx.compose.material.icons.rounded.Search
@@ -80,4 +81,5 @@ object NcsIcons {
     val CheckCircle = Icons.Outlined.CheckCircle
     val VolumeUp = Icons.AutoMirrored.Outlined.VolumeUp
     val VolumeOff = Icons.AutoMirrored.Outlined.VolumeOff
+    val SleepTimer = Icons.Rounded.Bedtime
 }
