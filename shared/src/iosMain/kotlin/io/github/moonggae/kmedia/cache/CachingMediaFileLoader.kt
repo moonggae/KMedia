@@ -7,8 +7,8 @@ import platform.darwin.NSObject
 
 data class DownloadInfo(
     val url: String,
-    val musicId: String? = null,  // 추가된 musicId 필드
-    val task: AVAssetDownloadTask,
+    val musicId: String? = null,
+    val task: NSURLSessionTask,
     val onFail: (() -> Unit)?,
     val onComplete: () -> Unit
 )
@@ -18,7 +18,7 @@ class CachingMediaFileLoader(
     private val cacheConfig: CacheConfig
 ) {
     private val fileManager = NSFileManager.defaultManager
-    private val session: AVAssetDownloadURLSession
+    private val session: NSURLSession
     private val downloadTasks = mutableMapOf<Long, DownloadInfo>()
     private val defaults = NSUserDefaults.standardUserDefaults
     private val lastAccessKey = "io.github.moonggae.kmedia.lastAccess"
@@ -28,32 +28,60 @@ class CachingMediaFileLoader(
         session = createDownloadSession()
     }
 
-    private fun createDownloadSession(): AVAssetDownloadURLSession {
+    // Use a plain NSURLSession (background) + NSURLSessionDownloadTask.
+    // AVAssetDownloadURLSession cannot be instantiated via Kotlin/Native because its factory
+    // returns a private __NSURLBackgroundSession that K/N cannot cast to AVAssetDownloadURLSession.
+    // A regular background NSURLSession handles MP3/AAC file downloads identically.
+    private fun createDownloadSession(): NSURLSession {
         val configuration = NSURLSessionConfiguration.backgroundSessionConfigurationWithIdentifier(
-            "io.github.moonggae.kmedia.assetDownloadSession"
+            "io.github.moonggae.kmedia.downloadSession"
         )
-        return AVAssetDownloadURLSession.sessionWithConfiguration(
+        return NSURLSession.sessionWithConfiguration(
             configuration = configuration,
-            assetDownloadDelegate = createDownloadDelegate(),
+            delegate = createDownloadDelegate(),
             delegateQueue = NSOperationQueue.mainQueue
         )
     }
 
-    private fun handleDownloadCompletion(task: NSURLSessionTask, error: NSError?) {
+    private fun handleDownloadFinished(task: NSURLSessionTask, location: NSURL) {
         val taskId = task.taskIdentifier.toLong()
-        if (error != null) {
-            downloadTasks[taskId]?.let { downloadInfo ->
-                cleanupFailedDownload(NSURL(string = downloadInfo.url))
-                downloadInfo.onFail?.invoke()
+        val downloadInfo = downloadTasks[taskId] ?: return
+        val originalUrl = NSURL(string = downloadInfo.url)
+        val cacheFileURL = getCacheFileURL(originalUrl) ?: run {
+            downloadInfo.onFail?.invoke()
+            downloadTasks.remove(taskId)
+            return
+        }
+
+        // Remove any stale destination file before moving
+        if (fileManager.fileExistsAtPath(cacheFileURL.path!!)) {
+            fileManager.removeItemAtURL(cacheFileURL, error = null)
+        }
+
+        val moved = memScoped {
+            val error = alloc<ObjCObjectVar<NSError?>>()
+            fileManager.moveItemAtURL(location, toURL = cacheFileURL, error = error.ptr)
+        }
+
+        if (moved) {
+            updateLastAccess(originalUrl)
+            downloadInfo.musicId?.let { musicId ->
+                saveUrlToIdMapping(downloadInfo.url, musicId)
             }
+            downloadInfo.onComplete()
         } else {
-            downloadTasks[taskId]?.let { downloadInfo ->
-                // ID가 있으면 매핑 저장
-                downloadInfo.musicId?.let { musicId ->
-                    saveUrlToIdMapping(downloadInfo.url, musicId)
-                }
-                downloadInfo.onComplete()
-            }
+            cleanupFailedDownload(originalUrl)
+            downloadInfo.onFail?.invoke()
+        }
+        downloadTasks.remove(taskId)
+    }
+
+    private fun handleDownloadCompletion(task: NSURLSessionTask, error: NSError?) {
+        if (error == null) return  // success is handled in handleDownloadFinished
+        val taskId = task.taskIdentifier.toLong()
+        downloadTasks[taskId]?.let { downloadInfo ->
+            cleanupFailedDownload(NSURL(string = downloadInfo.url))
+            downloadInfo.onFail?.invoke()
         }
         downloadTasks.remove(taskId)
     }
@@ -86,14 +114,21 @@ class CachingMediaFileLoader(
     fun removeCacheById(id: String) {
         getUrlById(id)?.let { url ->
             removeCache(NSURL(string = url))
-            // 매핑에서도 제거
             val map = getUrlToIdMap().toMutableMap()
             map.entries.removeAll { it.value == id }
             defaults.setObject(map, urlToIdMapKey)
         }
     }
 
-    private fun createDownloadDelegate() = object : NSObject(), AVAssetDownloadDelegateProtocol {
+    private fun createDownloadDelegate() = object : NSObject(), NSURLSessionDownloadDelegateProtocol {
+        override fun URLSession(
+            session: NSURLSession,
+            downloadTask: NSURLSessionDownloadTask,
+            didFinishDownloadingToURL: NSURL,
+        ) {
+            handleDownloadFinished(downloadTask, didFinishDownloadingToURL)
+        }
+
         override fun URLSession(
             session: NSURLSession,
             task: NSURLSessionTask,
@@ -142,7 +177,7 @@ class CachingMediaFileLoader(
             return
         }
 
-        val cacheFileURL = getCacheFileURL(url) ?: run {
+        getCacheFileURL(url) ?: run {
             onFail()
             return
         }
@@ -166,33 +201,18 @@ class CachingMediaFileLoader(
             return
         }
 
-        val streamingAsset = AVURLAsset(
-            url, mapOf(
-                AVURLAssetPreferPreciseDurationAndTimingKey to true
+        val downloadTask = session.downloadTaskWithURL(url)
+        val taskId = downloadTask.taskIdentifier.toLong()
+        url.absoluteString?.let { absoluteString ->
+            downloadTasks[taskId] = DownloadInfo(
+                url = absoluteString,
+                musicId = musicId,
+                task = downloadTask,
+                onFail = onFail,
+                onComplete = onCompletion
             )
-        )
-
-        val downloadTask = session.assetDownloadTaskWithURLAsset(
-            URLAsset = streamingAsset,
-            destinationURL = cacheFileURL,
-            options = null
-        )
-
-        downloadTask?.let { task ->
-            val taskId = task.taskIdentifier.toLong()
-            url.absoluteString?.let { absoluteString ->
-                downloadTasks[taskId] = DownloadInfo(
-                    url = absoluteString,
-                    musicId = musicId,
-                    task = task,
-                    onFail = onFail,
-                    onComplete = onCompletion
-                )
-            }
-            task.resume()
-        } ?: run {
-            onFail()
         }
+        downloadTask.resume()
     }
 
     fun loadFileWithCaching(
@@ -244,25 +264,18 @@ class CachingMediaFileLoader(
             return
         }
 
-        val downloadTask = session.assetDownloadTaskWithURLAsset(
-            URLAsset = streamingAsset,
-            destinationURL = cacheFileURL,
-            options = null
-        )
-
-        downloadTask?.let { task ->
-            val taskId = task.taskIdentifier.toLong()
-            url.absoluteString?.let { absoluteString ->
-                downloadTasks[taskId] = DownloadInfo(
-                    url = absoluteString,
-                    musicId = musicId,  // musicId 추가
-                    task = task,
-                    onFail = null,
-                    onComplete = onCompleteCaching
-                )
-            }
-            task.resume()
+        val downloadTask = session.downloadTaskWithURL(url)
+        val taskId = downloadTask.taskIdentifier.toLong()
+        url.absoluteString?.let { absoluteString ->
+            downloadTasks[taskId] = DownloadInfo(
+                url = absoluteString,
+                musicId = musicId,
+                task = downloadTask,
+                onFail = null,
+                onComplete = onCompleteCaching
+            )
         }
+        downloadTask.resume()
     }
 
     private fun checkAndCleanupCacheIfNeeded() {
