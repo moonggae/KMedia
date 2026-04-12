@@ -26,6 +26,7 @@ Audio player library built with Kotlin Multiplatform (KMP). It provides a consis
 - Playlist management (add, remove, reorder, replace)
 - Dynamic music replacement during playback
 - Shuffle and repeat mode support
+- Sleep timer support (fixed duration / current track end)
 - Playback state and position monitoring
 - Background playback support
 - Control Center (iOS) and Media Notification (Android) integration
@@ -207,6 +208,37 @@ media.player.setRepeatMode(RepeatMode.REPEAT_MODE_OFF) // No repeat
 media.player.setShuffleMode(true) // Enable shuffle
 media.player.setShuffleMode(false) // Disable shuffle
 ```
+
+### Sleep Timer
+
+KMedia includes a built-in sleep timer with smooth fade-out before pause.
+
+```kotlin
+// Start timer with fixed duration (milliseconds)
+media.sleepTimer.start(durationMs = 15 * 60 * 1000L) // 15 minutes
+
+// Stop playback at the end of current track
+media.sleepTimer.startUntilCurrentTrackEnd()
+
+// Cancel timer
+media.sleepTimer.cancel()
+```
+
+You can observe sleep timer state via Flow:
+
+```kotlin
+val sleepTimerState by media.sleepTimer.state.collectAsState()
+
+if (sleepTimerState.isActive) {
+    println("Mode: ${sleepTimerState.mode}")
+    println("Remaining: ${sleepTimerState.remainingMs} ms")
+}
+```
+
+Notes:
+- Duration timer uses monotonic time for stable countdown behavior.
+- "Current track end" mode tracks playback progress and `ENDED` state.
+- On expiry, playback volume fades out smoothly, then playback is paused.
 
 ### Cache Management
 
