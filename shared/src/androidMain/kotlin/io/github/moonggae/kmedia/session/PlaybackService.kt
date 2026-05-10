@@ -35,6 +35,7 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var playbackAnalyticsEventListener: PlaybackAnalyticsEventListener
     private lateinit var customLayoutUpdateListener: CustomLayoutUpdateListener
     private lateinit var sessionCallback: LibrarySessionCallback
+    private lateinit var playbackResumeStore: PlaybackResumeStore
 
     private fun createPlayer(): ExoPlayer {
         val audioAttributes = AudioAttributes.Builder()
@@ -77,6 +78,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         if (::session.isInitialized) {
+            playbackResumeStore.save(session.player, force = true)
             session.player.release()
             session.release()
         }
@@ -85,6 +87,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         if (::session.isInitialized) {
+            playbackResumeStore.save(session.player, force = true)
             session.player.pause()
             session.player.stop()
             stopSelf()
@@ -116,6 +119,7 @@ class PlaybackService : MediaLibraryService() {
         playbackAnalyticsEventListener = koin.get()
         customLayoutUpdateListener = koin.get()
         sessionCallback = koin.get()
+        playbackResumeStore = koin.get()
     }
 
     private companion object {

@@ -11,6 +11,7 @@ import io.github.moonggae.kmedia.listener.PlaybackIOHandler
 import io.github.moonggae.kmedia.listener.PlaybackStateHandler
 import io.github.moonggae.kmedia.repository.PlatformMusicCacheRepository
 import io.github.moonggae.kmedia.session.LibrarySessionCallback
+import io.github.moonggae.kmedia.session.PlaybackResumeStore
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -18,6 +19,7 @@ import org.koin.dsl.module
 
 internal actual fun getPlatformPlaybackModule(): Module = module {
     singleOf(::CacheManager)
+    singleOf(::PlaybackResumeStore)
     singleOf(::PlaybackStateHandler)
     singleOf(::PlaybackIOHandler)
     singleOf(::PlatformMediaPlaybackController) bind MediaPlaybackController::class

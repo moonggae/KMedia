@@ -35,8 +35,8 @@ internal val MediaItem.isNetworkSource: Boolean
 
 internal fun MediaItem.asMusic(): Music = Music(
     id = mediaId,
-    title = mediaMetadata.title.toString(),
-    artist = mediaMetadata.artist.toString(),
-    coverUrl = mediaMetadata.artworkUri.toString(),
-    uri = localConfiguration?.uri.toString()
+    title = mediaMetadata.title?.toString(),
+    artist = mediaMetadata.artist?.toString(),
+    coverUrl = mediaMetadata.artworkUri?.toString(),
+    uri = localConfiguration?.uri?.toString().orEmpty()
 )

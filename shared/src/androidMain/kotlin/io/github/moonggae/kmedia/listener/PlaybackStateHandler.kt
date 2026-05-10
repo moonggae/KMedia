@@ -6,6 +6,7 @@ import androidx.media3.common.Timeline
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
+import io.github.moonggae.kmedia.session.PlaybackResumeStore
 import io.github.moonggae.kmedia.state.PlaybackStateManager
 import io.github.moonggae.kmedia.util.asMusic
 import io.github.moonggae.kmedia.util.playingStatus
@@ -21,6 +22,7 @@ import kotlin.time.Duration.Companion.milliseconds
 internal class PlaybackStateHandler(
     private val scope: CoroutineScope,
     private val playbackStateManager: PlaybackStateManager,
+    private val playbackResumeStore: PlaybackResumeStore,
     private val mainDispatcher: CoroutineDispatcher
 ) : Player.Listener {
 
@@ -107,6 +109,7 @@ internal class PlaybackStateHandler(
             isMuted = player.isDeviceMuted,
             volume = player.normalizedVolume
         )
+        playbackResumeStore.save(player)
     }
 }
 
