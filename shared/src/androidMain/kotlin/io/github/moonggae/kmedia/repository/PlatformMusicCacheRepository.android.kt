@@ -9,21 +9,25 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import io.github.moonggae.kmedia.cache.CacheManager
 import io.github.moonggae.kmedia.cache.CacheMediaItemWorker
-import io.github.moonggae.kmedia.cache.CacheStatusListener
+import io.github.moonggae.kmedia.cache.CacheStatus
+import io.github.moonggae.kmedia.cache.CacheStatusStore
 import io.github.moonggae.kmedia.cache.MusicCacheRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 
 internal class PlatformMusicCacheRepository(
     private val cacheManager: CacheManager,
-    private val cacheStatusListener: CacheStatusListener,
+    private val cacheStatusStore: CacheStatusStore,
     private val applicationContext: Context
 ) : MusicCacheRepository {
     override val maxSizeMb: Int = cacheManager.maxSizeMb
 
     override val enableCache: Boolean = cacheManager.enableCache
+
+    override val statuses: StateFlow<Map<String, CacheStatus>> = cacheStatusStore.statuses
 
     override val usedSizeBytes: Flow<Long?> = if (enableCache) {
         flow {
@@ -37,9 +41,10 @@ internal class PlatformMusicCacheRepository(
     }
 
     override suspend fun clearCache() {
+        val cachedKeys = cacheManager.keys
         cacheManager.cleanCache()
-        cacheManager.keys.forEach {
-            cacheStatusListener.onCacheStatusChanged(it, CacheStatusListener.CacheStatus.NONE)
+        cachedKeys.forEach {
+            cacheStatusStore.update(it, CacheStatus.NONE)
         }
     }
 
@@ -72,7 +77,7 @@ internal class PlatformMusicCacheRepository(
     override suspend fun removeCachedMusic(vararg keys: String) {
         keys.forEach { key ->
             cacheManager.removeFile(key)
-            cacheStatusListener.onCacheStatusChanged(key, CacheStatusListener.CacheStatus.NONE)
+            cacheStatusStore.update(key, CacheStatus.NONE)
         }
     }
 }

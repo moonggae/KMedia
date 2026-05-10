@@ -1,6 +1,7 @@
 package io.github.moonggae.kmedia.cache
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface MusicCacheRepository {
     val maxSizeMb: Int
@@ -8,6 +9,8 @@ interface MusicCacheRepository {
     val usedSizeBytes: Flow<Long?>
 
     val enableCache: Boolean
+
+    val statuses: StateFlow<Map<String, CacheStatus>>
 
     suspend fun clearCache()
 

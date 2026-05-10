@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import io.github.moonggae.kmedia.cache.CacheStatusListener
+import io.github.moonggae.kmedia.cache.CacheStatus
 import io.github.moonggae.kmedia.sample.designsystem.component.ListItemCardDefaults
 import io.github.moonggae.kmedia.sample.designsystem.component.ListItemCardStyle
 import io.github.moonggae.kmedia.sample.designsystem.icon.NcsIcons
@@ -154,7 +154,7 @@ private fun ReorderableCollectionItemScope.ReorderableMusicListItem(
         },
         titlePrefix = {
             when (music.cacheStatus) {
-                CacheStatusListener.CacheStatus.FULLY_CACHED -> {
+                CacheStatus.FULLY_CACHED -> {
                     Icon(
                         imageVector = NcsIcons.CheckCircle,
                         contentDescription = "cached icon",

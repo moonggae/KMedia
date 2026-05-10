@@ -17,7 +17,7 @@ import platform.darwin.NSEC_PER_SEC
 
 internal class PlaybackAnalyticsManager(
     private val player: AVPlayer,
-    private val analyticsHelper: PlaybackAnalyticsListener
+    private val analyticsEventQueue: PlaybackAnalyticsEventQueue
 ) {
     private var currentMusic: Music? = null
     private var periodicTimeObserver: Any? = null
@@ -67,7 +67,13 @@ internal class PlaybackAnalyticsManager(
         val music = currentMusic ?: return
 
         if (accumulatedPlayTime > 0) {
-            analyticsHelper.onPlaybackCompleted(music.id, accumulatedPlayTime, currentDuration)
+            analyticsEventQueue.enqueue(
+                PlaybackAnalyticsEvent(
+                    musicId = music.id,
+                    totalPlayTimeMs = accumulatedPlayTime,
+                    durationMs = currentDuration,
+                )
+            )
         }
     }
 

@@ -29,13 +29,12 @@ class PlaybackService : MediaLibraryService() {
 
     lateinit var session: MediaLibrarySession
 
-    private val cacheManager: CacheManager by IsolatedKoinContext.koin.inject()
-    private val playbackStateHandler: PlaybackStateHandler by IsolatedKoinContext.koin.inject()
-    private val playbackIOHandler: PlaybackIOHandler by IsolatedKoinContext.koin.inject()
-    private val playbackAnalyticsEventListener: PlaybackAnalyticsEventListener by IsolatedKoinContext.koin.inject()
-    private val customLayoutUpdateListener: CustomLayoutUpdateListener by IsolatedKoinContext.koin.inject()
-    private val sessionCallback: LibrarySessionCallback by IsolatedKoinContext.koin.inject()
-//    private val sessionActivity: PendingIntent by IsolatedKoinContext.koin.inject()
+    private lateinit var cacheManager: CacheManager
+    private lateinit var playbackStateHandler: PlaybackStateHandler
+    private lateinit var playbackIOHandler: PlaybackIOHandler
+    private lateinit var playbackAnalyticsEventListener: PlaybackAnalyticsEventListener
+    private lateinit var customLayoutUpdateListener: CustomLayoutUpdateListener
+    private lateinit var sessionCallback: LibrarySessionCallback
 
     private fun createPlayer(): ExoPlayer {
         val audioAttributes = AudioAttributes.Builder()
@@ -66,6 +65,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        injectDependencies()
         val sessionBuilder = MediaLibrarySession.Builder(this, player!!, sessionCallback)
         createSessionActivityPendingIntent()?.let(sessionBuilder::setSessionActivity)
         session = sessionBuilder.build()
@@ -76,15 +76,19 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
-        session.player.release()
-        session.release()
+        if (::session.isInitialized) {
+            session.player.release()
+            session.release()
+        }
         super.onDestroy()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        session.player.pause()
-        session.player.stop()
-        stopSelf()
+        if (::session.isInitialized) {
+            session.player.pause()
+            session.player.stop()
+            stopSelf()
+        }
         super.onTaskRemoved(rootIntent)
     }
 
@@ -102,6 +106,16 @@ class PlaybackService : MediaLibraryService() {
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    private fun injectDependencies() {
+        val koin = IsolatedKoinContext.requireKoin()
+        cacheManager = koin.get()
+        playbackStateHandler = koin.get()
+        playbackIOHandler = koin.get()
+        playbackAnalyticsEventListener = koin.get()
+        customLayoutUpdateListener = koin.get()
+        sessionCallback = koin.get()
     }
 
     private companion object {
