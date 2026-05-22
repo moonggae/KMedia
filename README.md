@@ -138,6 +138,18 @@ media.player.next()
 media.player.seekTo(positionMs = 30000)
 ```
 
+### Lifecycle
+
+Call `KMedia.initialize(...)` once per app process before creating any `KMedia` instance.
+On Android, call it from `Application.onCreate()` so `PlaybackService` can resolve its
+dependencies even when it is created before UI.
+
+`KMedia.create()` returns the process-wide KMedia facade.
+
+`KMedia.release()` releases resources owned by that facade, such as sleep timer jobs and
+the playback controller connection. It does not shut down KMedia's internal dependency graph.
+Reinitializing KMedia with a different config in the same process is not supported.
+
 ### Monitoring Playback State
 
 You can monitor the playback state through Flow:
@@ -299,9 +311,12 @@ when (cacheStatuses["music1"]) {
 
 ### Playback Analytics Events
 
-Playback analytics are exposed as a process-lifetime event stream. Events emitted before a
-collector starts are buffered while the app process is alive, and each collector receives the
-buffered events from the beginning.
+Playback analytics are exposed as an in-process event stream.
+
+Events are delivered to active collectors only. KMedia does not persist analytics events, does
+not replay historical events to new collectors, and does not guarantee delivery after process
+death. If analytics delivery must be guaranteed, collect this stream from an application-level
+coroutine and persist or upload events in your app layer.
 
 Usage example:
 

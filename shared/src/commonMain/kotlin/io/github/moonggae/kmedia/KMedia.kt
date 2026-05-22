@@ -26,6 +26,14 @@ class KMedia private constructor() {
     val player: MediaPlaybackController by lazy { koin.get() }
     val cache: MusicCacheRepository by lazy { koin.get() }
     val playbackState: StateFlow<PlaybackState> = PlaybackStateManager.flow
+
+    /**
+     * In-process playback analytics events.
+     *
+     * Events are delivered to active collectors only. They are not replayed to new collectors,
+     * are not persisted across process death, and older buffered events may be dropped when the
+     * collector cannot keep up.
+     */
     val analyticsEvents: Flow<PlaybackAnalyticsEvent> by lazy {
         koin.get<PlaybackAnalyticsEventQueue>().events
     }
@@ -37,6 +45,11 @@ class KMedia private constructor() {
         )
     }
 
+    /**
+     * Releases resources owned by this facade. This does not shut down KMedia's process-wide
+     * dependency graph, so reinitializing with a different config in the same process is not
+     * supported.
+     */
     fun release() {
         sleepTimerScope.cancel()
         player.release()
@@ -46,6 +59,12 @@ class KMedia private constructor() {
     companion object {
         private var instance: KMedia? = null
 
+        /**
+         * Initializes KMedia once per app process.
+         *
+         * On Android, call this from Application.onCreate() before any UI screen so playback
+         * services can resolve their dependencies safely.
+         */
         fun initialize(
             context: Any,
             config: KMediaConfig = KMediaConfig(),
@@ -64,6 +83,9 @@ class KMedia private constructor() {
             )
         }
 
+        /**
+         * Returns the process-wide KMedia facade after initialize() has completed.
+         */
         fun create(): KMedia {
             IsolatedKoinContext.requireInitialized()
             return instance ?: KMedia().also { instance = it }

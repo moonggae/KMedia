@@ -1,25 +1,24 @@
 package io.github.moonggae.kmedia.analytics
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 internal class PlaybackAnalyticsEventQueue {
-    private val bufferedEvents = MutableStateFlow<List<PlaybackAnalyticsEvent>>(emptyList())
+    private val _events = MutableSharedFlow<PlaybackAnalyticsEvent>(
+        replay = 0,
+        extraBufferCapacity = EXTRA_BUFFER_CAPACITY,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
 
-    val events: Flow<PlaybackAnalyticsEvent> = flow {
-        var nextIndex = 0
-
-        bufferedEvents.collect { events ->
-            while (nextIndex < events.size) {
-                emit(events[nextIndex])
-                nextIndex += 1
-            }
-        }
-    }
+    val events: SharedFlow<PlaybackAnalyticsEvent> = _events.asSharedFlow()
 
     fun enqueue(event: PlaybackAnalyticsEvent) {
-        bufferedEvents.update { events -> events + event }
+        _events.tryEmit(event)
+    }
+
+    private companion object {
+        const val EXTRA_BUFFER_CAPACITY = 64
     }
 }
