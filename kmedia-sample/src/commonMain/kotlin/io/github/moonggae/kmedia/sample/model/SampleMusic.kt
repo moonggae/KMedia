@@ -1,6 +1,6 @@
 package io.github.moonggae.kmedia.sample.model
 
-import io.github.moonggae.kmedia.cache.CacheStatusListener
+import io.github.moonggae.kmedia.cache.CacheStatus
 import io.github.moonggae.kmedia.model.Music
 
 data class SampleMusic(
@@ -9,7 +9,7 @@ data class SampleMusic(
     val artist: String,
     val coverUrl: String,
     val uri: String,
-    val cacheStatus: CacheStatusListener.CacheStatus = CacheStatusListener.CacheStatus.NONE
+    val cacheStatus: CacheStatus = CacheStatus.NONE
 )
 
 fun SampleMusic.toMusic() = Music(

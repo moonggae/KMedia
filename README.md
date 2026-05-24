@@ -84,26 +84,41 @@ Add the following to your `Info.plist`:
 
 ### Basic Usage
 
-KMedia can be initialized in `Composable` using `PlatformContext`
+Initialize KMedia once when your app starts. On Android, call it from `Application.onCreate()` so
+`PlaybackService` can be created safely before any UI screen.
+
 ```kotlin
-@Composable
-fun KMediaSample() {
-    val platformContext = LocalPlatformContext.current
-    val media = remember {
-        KMedia.builder()
-            .cache(enabled = true, sizeInMb = 1024)
-            .build(platformContext)
+class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        KMedia.initialize(
+            context = this,
+            config = KMediaConfig(
+                cacheEnabled = true,
+                cacheSizeMb = 1024
+            )
+        )
     }
 }
+```
+
+On iOS, call the same initialization API from your app entry point before creating the player UI.
+
+```kotlin
+KMedia.initialize(
+    context = Unit,
+    config = KMediaConfig(
+        cacheEnabled = true,
+        cacheSizeMb = 1024
+    )
+)
 ```
 
 KMedia can be used as follows:
 
 ```kotlin
 // Create a KMedia instance
-val media = KMedia.Builder()
-    .cache(enabled = true, sizeInMb = 1024)
-    .build(context)
+val media = KMedia.create()
 
 // Get music list
 val musics = SampleMusicRepository().getSampleMusicList()
@@ -122,6 +137,18 @@ media.player.next()
 // Seek to position
 media.player.seekTo(positionMs = 30000)
 ```
+
+### Lifecycle
+
+Call `KMedia.initialize(...)` once per app process before creating any `KMedia` instance.
+On Android, call it from `Application.onCreate()` so `PlaybackService` can resolve its
+dependencies even when it is created before UI.
+
+`KMedia.create()` returns the process-wide KMedia facade.
+
+`KMedia.release()` releases resources owned by that facade, such as sleep timer jobs and
+the playback controller connection. It does not shut down KMedia's internal dependency graph.
+Reinitializing KMedia with a different config in the same process is not supported.
 
 ### Monitoring Playback State
 
@@ -246,6 +273,9 @@ Notes:
 // Check cache usage
 val cacheUsage by media.cache.usedSizeBytes.collectAsState(initial = 0L)
 
+// Observe cache statuses
+val cacheStatuses by media.cache.statuses.collectAsState()
+
 // Cache specific music
 media.cache.preCacheMusic(url = "https://example.com/music.mp3", key = "music1")
 
@@ -261,70 +291,42 @@ media.cache.clearCache()
 
 ## Advanced Features
 
-### CacheStatusListener
+### Cache Statuses
 
-An interface for monitoring cache status changes. You can implement this to track caching progress.
-
-```kotlin
-interface CacheStatusListener {
-    fun onCacheStatusChanged(musicId: String, status: CacheStatus)
-
-    enum class CacheStatus {
-        NONE,               // Not cached
-        PARTIALLY_CACHED,   // Partially cached
-        FULLY_CACHED        // Fully cached
-    }
-}
-```
+KMedia exposes cache status changes as state, so UI code can subscribe without registering
+callbacks from `Application`.
 
 Usage example:
 
 ```kotlin
-val cacheStatusListener = object : CacheStatusListener {
-    override fun onCacheStatusChanged(musicId: String, status: CacheStatus) {
-        when (status) {
-            CacheStatus.NONE -> println("$musicId: No cache")
-            CacheStatus.PARTIALLY_CACHED -> println("$musicId: Caching in progress")
-            CacheStatus.FULLY_CACHED -> println("$musicId: Caching completed")
-        }
-    }
-}
+val cacheStatuses by media.cache.statuses.collectAsState()
 
-// Register listener when initializing KMedia
-val media = KMedia.Builder()
-    .cache(enabled = true, sizeInMb = 1024, listener = cacheStatusListener)
-    .build(context)
-```
-
-### PlaybackAnalyticsListener
-
-An interface for collecting playback analytics. You can track user playback patterns and statistics.
-
-```kotlin
-interface PlaybackAnalyticsListener {
-    fun onPlaybackCompleted(
-        musicId: String,
-        totalPlayTimeMs: Long,
-        duration: Long
-    )
+when (cacheStatuses["music1"]) {
+    CacheStatus.NONE -> println("music1: No cache")
+    CacheStatus.PARTIALLY_CACHED -> println("music1: Caching in progress")
+    CacheStatus.FULLY_CACHED -> println("music1: Caching completed")
+    null -> println("music1: No cache status yet")
 }
 ```
+
+### Playback Analytics Events
+
+Playback analytics are exposed as an in-process event stream.
+
+Events are delivered to active collectors only. KMedia does not persist analytics events, does
+not replay historical events to new collectors, and does not guarantee delivery after process
+death. If analytics delivery must be guaranteed, collect this stream from an application-level
+coroutine and persist or upload events in your app layer.
 
 Usage example:
 
 ```kotlin
-val analyticsListener = object : PlaybackAnalyticsListener {
-    override fun onPlaybackCompleted(musicId: String, totalPlayTimeMs: Long, duration: Long) {
-        // Process playback statistics
-        val playPercentage = (totalPlayTimeMs.toFloat() / duration.toFloat()) * 100
-        println("$musicId playback completed: $playPercentage% played ($totalPlayTimeMs ms / $duration ms)")
-        
-        // You can send analytics data to server here
+LaunchedEffect(media) {
+    media.analyticsEvents.collect { event ->
+        val playPercentage = (event.totalPlayTimeMs.toFloat() / event.durationMs.toFloat()) * 100
+        println("${event.musicId} playback completed: $playPercentage% played")
+
+        // You can send analytics data to server here.
     }
 }
-
-// Register listener when initializing KMedia
-val media = KMedia.Builder()
-    .analytics(analyticsListener)
-    .build(context)
 ```

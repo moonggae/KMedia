@@ -5,7 +5,7 @@ import platform.Foundation.*
 import kotlinx.cinterop.*
 import platform.darwin.NSObject
 
-data class DownloadInfo(
+internal data class DownloadInfo(
     val url: String,
     val musicId: String? = null,
     val task: NSURLSessionTask,
@@ -14,7 +14,7 @@ data class DownloadInfo(
 )
 
 @OptIn(ExperimentalForeignApi::class)
-class CachingMediaFileLoader(
+internal class CachingMediaFileLoader(
     private val cacheConfig: CacheConfig
 ) {
     private val fileManager = NSFileManager.defaultManager

@@ -2,9 +2,10 @@
 
 package io.github.moonggae.kmedia.controller
 
-import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsListener
 import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsManager
-import io.github.moonggae.kmedia.cache.CacheStatusListener
+import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsEventQueue
+import io.github.moonggae.kmedia.cache.CacheStatus
+import io.github.moonggae.kmedia.cache.CacheStatusStore
 import io.github.moonggae.kmedia.cache.CachingMediaFileLoader
 import io.github.moonggae.kmedia.cache.MusicCacheRepository
 import io.github.moonggae.kmedia.controller.controlcenter.ControlCenterManager
@@ -36,9 +37,9 @@ internal class PlatformMediaPlaybackController(
     private val playbackStateManager: PlaybackStateManager,
     private val cachingLoader: CachingMediaFileLoader,
     private val cacheRepository: MusicCacheRepository,
-    private val analyticsListener: PlaybackAnalyticsListener,
-    private val cacheStatusListener: CacheStatusListener,
-) : MediaPlaybackController {
+    private val analyticsEventQueue: PlaybackAnalyticsEventQueue,
+    private val cacheStatusStore: CacheStatusStore,
+) : MediaPlaybackController, MediaPlaybackControllerReleaser {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val playerStateManager = IosPlayerStateManager(scope)
@@ -61,7 +62,7 @@ internal class PlatformMediaPlaybackController(
 
     private val analyticsManager = PlaybackAnalyticsManager(
         player = playerStateManager.player,
-        analyticsHelper = analyticsListener
+        analyticsEventQueue = analyticsEventQueue
     )
 
     private var isLoading = false
@@ -158,7 +159,7 @@ internal class PlatformMediaPlaybackController(
     ) {
         prepareAndPlay(streamingAsset, music, playImmediately)
         scope.launch(Dispatchers.IO) {
-            cacheStatusListener.onCacheStatusChanged(music.id, CacheStatusListener.CacheStatus.NONE)
+            cacheStatusStore.update(music.id, CacheStatus.NONE)
         }
     }
 
@@ -166,7 +167,7 @@ internal class PlatformMediaPlaybackController(
         music: Music,
     ) {
         scope.launch(Dispatchers.IO) {
-            cacheStatusListener.onCacheStatusChanged(music.id, CacheStatusListener.CacheStatus.FULLY_CACHED)
+            cacheStatusStore.update(music.id, CacheStatus.FULLY_CACHED)
         }
     }
 
@@ -196,7 +197,7 @@ internal class PlatformMediaPlaybackController(
             } else {
                 // fallback: 다음 곡으로
                 scope.launch(Dispatchers.IO) {
-                    cacheStatusListener.onCacheStatusChanged(music.id, CacheStatusListener.CacheStatus.NONE)
+                    cacheStatusStore.update(music.id, CacheStatus.NONE)
                 }
                 next()
             }

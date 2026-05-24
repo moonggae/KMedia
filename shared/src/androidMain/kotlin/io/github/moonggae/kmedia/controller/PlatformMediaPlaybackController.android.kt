@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 
 internal class PlatformMediaPlaybackController(
     private val context: Context,
-) : MediaPlaybackController {
+) : MediaPlaybackController, MediaPlaybackControllerReleaser {
     private var controllerDeferred: Deferred<MediaController> = newControllerAsync()
 
     private fun newControllerAsync() = MediaController

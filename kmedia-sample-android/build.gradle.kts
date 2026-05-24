@@ -37,6 +37,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(project(":kmedia-sample"))
     implementation(libs.androidx.activity.compose)
 }

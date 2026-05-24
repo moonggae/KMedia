@@ -16,18 +16,29 @@ import com.google.common.util.concurrent.ListenableFuture
 import io.github.moonggae.kmedia.custom.MediaCustomLayoutHandler
 import io.github.moonggae.kmedia.custom.MediaCustomLayoutHandler.Companion.customCommandRepeat
 import io.github.moonggae.kmedia.custom.MediaCustomLayoutHandler.Companion.customCommandShuffle
+import io.github.moonggae.kmedia.util.asMediaItem
 import kotlinx.coroutines.CoroutineScope
 
 @OptIn(UnstableApi::class)
 internal class LibrarySessionCallback(
     private val scope: CoroutineScope,
     private val customLayoutHandler: MediaCustomLayoutHandler,
+    private val playbackResumeStore: PlaybackResumeStore,
 ): MediaLibrarySession.Callback {
+    @Deprecated("Media3 uses onPlaybackResumption with isForPlayback.")
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-        return super.onPlaybackResumption(mediaSession, controller)
+        return restorePlayback(mediaSession, isForPlayback = true)
+    }
+
+    override fun onPlaybackResumption(
+        mediaSession: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        isForPlayback: Boolean
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        return restorePlayback(mediaSession, isForPlayback)
     }
 
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
@@ -72,5 +83,32 @@ internal class LibrarySessionCallback(
     ): ListenableFuture<SessionResult> {
         customLayoutHandler.handleCustomCommand(session, customCommand)
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    }
+
+    private fun restorePlayback(
+        mediaSession: MediaSession,
+        isForPlayback: Boolean
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        val snapshot = playbackResumeStore.restore()
+            ?: return Futures.immediateFailedFuture(UnsupportedOperationException())
+
+        if (isForPlayback) {
+            mediaSession.player.shuffleModeEnabled = snapshot.shuffleModeEnabled
+            mediaSession.player.repeatMode = snapshot.repeatMode
+        }
+
+        val musics = if (isForPlayback) {
+            snapshot.musics
+        } else {
+            listOf(snapshot.musics[snapshot.currentIndex])
+        }
+
+        return Futures.immediateFuture(
+            MediaSession.MediaItemsWithStartPosition(
+                musics.map { it.asMediaItem() },
+                if (isForPlayback) snapshot.currentIndex else 0,
+                snapshot.positionMs
+            )
+        )
     }
 }

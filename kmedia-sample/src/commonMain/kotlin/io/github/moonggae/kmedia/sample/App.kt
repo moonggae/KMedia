@@ -2,7 +2,6 @@ package io.github.moonggae.kmedia.sample
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,8 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.moonggae.kmedia.KMedia
-import io.github.moonggae.kmedia.cache.CacheStatusListener
-import io.github.moonggae.kmedia.compose.LocalPlatformContext
+import io.github.moonggae.kmedia.cache.CacheStatus
 import io.github.moonggae.kmedia.sample.designsystem.theme.NcsTheme
 import io.github.moonggae.kmedia.sample.model.SampleMusic
 import io.github.moonggae.kmedia.sample.model.toMusics
@@ -20,37 +18,21 @@ import io.github.moonggae.kmedia.sample.ui.util.reorder
 
 @Composable
 fun App() {
-    val platformContext = LocalPlatformContext.current
     var musics: List<SampleMusic> by remember { mutableStateOf(SampleMusicRepository().getSampleMusicList()) }
     val kMedia = remember {
-        KMedia.builder()
-            .cache(
-                enabled = true,
-                sizeInMb = 1024,
-                listener = object : CacheStatusListener {
-                    override fun onCacheStatusChanged(musicId: String, status: CacheStatusListener.CacheStatus) {
-                        musics = musics.map { music ->
-                            if (music.id == musicId) {
-                                music.copy(cacheStatus = status)
-                            } else music
-                        }
-                    }
-                }
-            )
-            .build(platformContext)
+        KMedia.create()
     }
-
 
     val playbackState by kMedia.playbackState.collectAsState()
     val sleepTimerState by kMedia.sleepTimer.state.collectAsState()
-    val currentMusic = remember(playbackState.music) {
-        musics.find { it.id == playbackState.music?.id }
-    }
-
-    DisposableEffect(kMedia) {
-        onDispose {
-            kMedia.release()
+    val cacheStatuses by kMedia.cache.statuses.collectAsState()
+    val displayMusics = remember(musics, cacheStatuses) {
+        musics.map { music ->
+            music.copy(cacheStatus = cacheStatuses[music.id] ?: CacheStatus.NONE)
         }
+    }
+    val currentMusic = remember(playbackState.music, displayMusics) {
+        displayMusics.find { it.id == playbackState.music?.id }
     }
 
     LaunchedEffect(Unit) {
@@ -75,7 +57,7 @@ fun App() {
     NcsTheme {
         Scaffold { _ ->
             PlayerScreen(
-                musics = musics,
+                musics = displayMusics,
                 currentMusic = currentMusic,
                 playbackState = playbackState,
                 sleepTimerState = sleepTimerState,

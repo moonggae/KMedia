@@ -1,19 +1,23 @@
 package io.github.moonggae.kmedia
 
-import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsListener
+import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsEventQueue
 import io.github.moonggae.kmedia.cache.CacheConfig
-import io.github.moonggae.kmedia.cache.CacheStatusListener
+import io.github.moonggae.kmedia.cache.CacheStatusStore
 import org.koin.core.module.Module
-import org.koin.dsl.bind
 import org.koin.dsl.module
 
 internal actual fun kmediaModule(
     context: Any,
-    cacheConfig: CacheConfig,
-    playbackAnalyticsListener: PlaybackAnalyticsListener,
-    cacheStatusListener: CacheStatusListener,
+    config: KMediaConfig,
+    cacheStatusStore: CacheStatusStore,
+    playbackAnalyticsEventQueue: PlaybackAnalyticsEventQueue,
 ): Module = module {
+    val cacheConfig = CacheConfig(
+        enable = config.cacheEnabled,
+        sizeMB = config.cacheSizeMb,
+    )
+
     single { cacheConfig }
-    single { playbackAnalyticsListener } bind PlaybackAnalyticsListener::class
-    single { cacheStatusListener } bind CacheStatusListener::class
+    single { cacheStatusStore }
+    single { playbackAnalyticsEventQueue }
 }

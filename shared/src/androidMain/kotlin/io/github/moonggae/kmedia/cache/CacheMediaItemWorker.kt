@@ -9,7 +9,7 @@ import kotlinx.coroutines.withContext
 // TODO: factory
 internal class CacheMediaItemWorker(
     private val cacheManager: CacheManager,
-    private val cacheStatusListener: CacheStatusListener,
+    private val cacheStatusStore: CacheStatusStore,
     applicationContext: Context,
     workerParameters: WorkerParameters
 ): CoroutineWorker(applicationContext, workerParameters) {
@@ -22,11 +22,11 @@ internal class CacheMediaItemWorker(
             withContext(Dispatchers.Main) {
                 cacheManager.preCacheMedia(url, key)
             }
-            cacheStatusListener.onCacheStatusChanged(key, CacheStatusListener.CacheStatus.FULLY_CACHED)
+            cacheStatusStore.update(key, CacheStatus.FULLY_CACHED)
             return Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
-            cacheStatusListener.onCacheStatusChanged(key, CacheStatusListener.CacheStatus.NONE)
+            cacheStatusStore.update(key, CacheStatus.NONE)
             return Result.failure()
         }
     }
