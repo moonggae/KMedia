@@ -14,6 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.asDeferred
 import kotlinx.coroutines.launch
 
@@ -27,7 +29,8 @@ internal class PlatformMediaPlaybackController(
         .buildAsync()
         .asDeferred()
 
-    private val scope = CoroutineScope(Dispatchers.Main.immediate)
+    private val scope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val activeControllerDeferred: Deferred<MediaController>
@@ -116,7 +119,10 @@ internal class PlatformMediaPlaybackController(
     }
 
     override fun release() = executeAfterPrepare { controller ->
+        controller.stop()
+        controller.clearMediaItems()
         controller.release()
+        scope.cancel()
     }
 
     override fun setMuted(muted: Boolean, androidFlags: Int) = executeAfterPrepare { controller ->
