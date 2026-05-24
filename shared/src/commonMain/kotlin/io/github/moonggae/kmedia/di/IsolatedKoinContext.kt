@@ -8,12 +8,13 @@ import org.koin.dsl.koinApplication
 
 internal object IsolatedKoinContext {
     private var koinApp: KoinApplication? = null
-    private var initializedConfig: KMediaConfig? = null
+    private var initializedConfig: InitializationConfig? = null
 
-    fun init(config: KMediaConfig, module: Module) {
+    fun init(config: KMediaConfig, platformConfigKey: Any?, module: Module) {
+        val nextConfig = InitializationConfig(config, platformConfigKey)
         val currentConfig = initializedConfig
         if (koinApp != null) {
-            if (currentConfig == config) return
+            if (currentConfig == nextConfig) return
 
             throw IllegalStateException(
                 "KMedia is already initialized with $currentConfig. " +
@@ -24,7 +25,7 @@ internal object IsolatedKoinContext {
         koinApp = koinApplication {
             modules(playbackModule, module)
         }
-        initializedConfig = config
+        initializedConfig = nextConfig
     }
 
     fun requireKoin(): Koin = koinApp?.koin
@@ -33,4 +34,9 @@ internal object IsolatedKoinContext {
     fun requireInitialized() {
         requireKoin()
     }
+
+    private data class InitializationConfig(
+        val config: KMediaConfig,
+        val platformConfigKey: Any?,
+    )
 }

@@ -11,6 +11,7 @@ internal actual fun kmediaModule(
     config: KMediaConfig,
     cacheStatusStore: CacheStatusStore,
     playbackAnalyticsEventQueue: PlaybackAnalyticsEventQueue,
+    platformConfig: Any?,
 ): Module = module {
     val cacheConfig = CacheConfig(
         enable = config.cacheEnabled,

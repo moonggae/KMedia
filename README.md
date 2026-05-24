@@ -102,6 +102,33 @@ class App : Application() {
 }
 ```
 
+On Android, you can customize the activity `Intent` used when the media notification is tapped.
+The Android-specific overload keeps Android types out of the common `KMediaConfig`.
+
+```kotlin
+import android.net.Uri
+import io.github.moonggae.kmedia.KMediaAndroidConfig
+import io.github.moonggae.kmedia.initialize
+
+KMedia.initialize(
+    context = this,
+    config = KMediaConfig(
+        cacheEnabled = true,
+        cacheSizeMb = 1024
+    ),
+    androidConfig = KMediaAndroidConfig(
+        sessionActivityIntentProvider = { _, defaultIntent ->
+            defaultIntent?.apply {
+                data = Uri.parse("kmedia://session/open?source=notification")
+                putExtra("source", "media_notification")
+            }
+        }
+    )
+)
+```
+
+Handle the intent from both `onCreate()` and `onNewIntent()` if your app needs the data or extras.
+
 On iOS, call the same initialization API from your app entry point before creating the player UI.
 
 ```kotlin

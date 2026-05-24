@@ -71,16 +71,32 @@ class KMedia private constructor() {
             context: Any,
             config: KMediaConfig = KMediaConfig(),
         ) {
+            initializePlatform(
+                context = context,
+                config = config,
+                platformConfig = null,
+                platformConfigKey = null,
+            )
+        }
+
+        internal fun initializePlatform(
+            context: Any,
+            config: KMediaConfig,
+            platformConfig: Any?,
+            platformConfigKey: Any?,
+        ) {
             val cacheStatusStore = CacheStatusStore()
             val playbackAnalyticsEventQueue = PlaybackAnalyticsEventQueue()
 
             IsolatedKoinContext.init(
                 config = config,
+                platformConfigKey = platformConfigKey,
                 module = kmediaModule(
                     context = context,
                     config = config,
                     cacheStatusStore = cacheStatusStore,
                     playbackAnalyticsEventQueue = playbackAnalyticsEventQueue,
+                    platformConfig = platformConfig,
                 )
             )
         }
@@ -106,4 +122,5 @@ internal expect fun kmediaModule(
     config: KMediaConfig,
     cacheStatusStore: CacheStatusStore,
     playbackAnalyticsEventQueue: PlaybackAnalyticsEventQueue,
+    platformConfig: Any?,
 ): Module

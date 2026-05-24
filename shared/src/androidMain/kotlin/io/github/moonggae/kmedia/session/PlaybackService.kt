@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import io.github.moonggae.kmedia.KMediaAndroidConfig
 import io.github.moonggae.kmedia.cache.CacheManager
 import io.github.moonggae.kmedia.di.IsolatedKoinContext
 import io.github.moonggae.kmedia.custom.CustomLayoutUpdateListener
@@ -36,6 +37,7 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var customLayoutUpdateListener: CustomLayoutUpdateListener
     private lateinit var sessionCallback: LibrarySessionCallback
     private lateinit var playbackResumeStore: PlaybackResumeStore
+    private lateinit var androidConfig: KMediaAndroidConfig
 
     private fun createPlayer(): ExoPlayer {
         val audioAttributes = AudioAttributes.Builder()
@@ -98,10 +100,13 @@ class PlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = session
 
     private fun createSessionActivityPendingIntent(): PendingIntent? {
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val defaultLaunchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val launchIntent = androidConfig.sessionActivityIntentProvider
+            ?.createSessionActivityIntent(this, defaultLaunchIntent)
+            ?: defaultLaunchIntent
             ?: return null
-
-        launchIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
         return PendingIntent.getActivity(
             this,
@@ -120,6 +125,7 @@ class PlaybackService : MediaLibraryService() {
         customLayoutUpdateListener = koin.get()
         sessionCallback = koin.get()
         playbackResumeStore = koin.get()
+        androidConfig = koin.get()
     }
 
     private companion object {
