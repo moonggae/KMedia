@@ -39,7 +39,7 @@ internal class PlatformMediaPlaybackController(
     private val cacheRepository: MusicCacheRepository,
     private val analyticsEventQueue: PlaybackAnalyticsEventQueue,
     private val cacheStatusStore: CacheStatusStore,
-) : MediaPlaybackController {
+) : MediaPlaybackController, MediaPlaybackControllerReleaser {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val playerStateManager = IosPlayerStateManager(scope)

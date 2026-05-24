@@ -5,6 +5,7 @@ import io.github.moonggae.kmedia.analytics.PlaybackAnalyticsEventQueue
 import io.github.moonggae.kmedia.cache.CacheStatusStore
 import io.github.moonggae.kmedia.cache.MusicCacheRepository
 import io.github.moonggae.kmedia.controller.MediaPlaybackController
+import io.github.moonggae.kmedia.controller.MediaPlaybackControllerReleaser
 import io.github.moonggae.kmedia.di.IsolatedKoinContext
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.sleep.DefaultSleepTimerController
@@ -26,6 +27,7 @@ class KMedia private constructor() {
     val player: MediaPlaybackController by lazy { koin.get() }
     val cache: MusicCacheRepository by lazy { koin.get() }
     val playbackState: StateFlow<PlaybackState> = PlaybackStateManager.flow
+    private val playerReleaser: MediaPlaybackControllerReleaser by lazy { koin.get() }
 
     /**
      * In-process playback analytics events.
@@ -52,7 +54,7 @@ class KMedia private constructor() {
      */
     fun release() {
         sleepTimerScope.cancel()
-        player.release()
+        playerReleaser.release()
         clearInstance(this)
     }
 
