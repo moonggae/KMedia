@@ -10,22 +10,29 @@ import androidx.media3.common.util.UnstableApi
 import io.github.moonggae.kmedia.model.Music
 
 @OptIn(UnstableApi::class)
-internal fun Music.asMediaItem(): MediaItem = MediaItem.Builder()
-    .setUri(uri)
-    .setCustomCacheKey(id)
-    .setMimeType(MimeTypes.AUDIO_MPEG)
-    .setMediaId(id)
-    .setMediaMetadata(
-        MediaMetadata
-            .Builder()
-            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .setArtist(artist)
-            .setTitle(title)
-            .setArtworkUri(Uri.parse(coverUrl))
-            .setIsPlayable(true)
-            .setIsBrowsable(true)
-            .build()
-    ).build()
+internal fun Music.asMediaItem(): MediaItem {
+    MediaRequestHeadersRegistry.register(
+        uri = uri,
+        cacheKey = cacheKey,
+        requestHeaders = requestHeaders,
+    )
+    return MediaItem.Builder()
+        .setUri(uri)
+        .setCustomCacheKey(cacheKey)
+        .setMimeType(mimeType ?: MimeTypes.AUDIO_MPEG)
+        .setMediaId(id)
+        .setMediaMetadata(
+            MediaMetadata
+                .Builder()
+                .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                .setArtist(artist)
+                .setTitle(title)
+                .setArtworkUri(Uri.parse(coverUrl))
+                .setIsPlayable(true)
+                .setIsBrowsable(true)
+                .build()
+        ).build()
+}
 
 internal val MediaItem.isNetworkSource: Boolean
     get() {
@@ -38,5 +45,7 @@ internal fun MediaItem.asMusic(): Music = Music(
     title = mediaMetadata.title?.toString(),
     artist = mediaMetadata.artist?.toString(),
     coverUrl = mediaMetadata.artworkUri?.toString(),
-    uri = localConfiguration?.uri?.toString().orEmpty()
+    uri = localConfiguration?.uri?.toString().orEmpty(),
+    cacheKey = localConfiguration?.customCacheKey ?: mediaId,
+    mimeType = localConfiguration?.mimeType,
 )

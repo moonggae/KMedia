@@ -30,6 +30,7 @@ Audio player library built with Kotlin Multiplatform (KMP). It provides a consis
 - Playback state and position monitoring
 - Background playback support
 - Control Center (iOS) and Media Notification (Android) integration
+- Per-track HTTP request headers for protected streaming URLs
 
 ## Setup
 
@@ -163,6 +164,25 @@ media.player.next()
 
 // Seek to position
 media.player.seekTo(positionMs = 30000)
+```
+
+For protected audio streams, attach request headers to each `Music` item. Headers are
+kept in memory for playback and are not used as cache keys.
+
+```kotlin
+val protectedMusic = Music(
+    id = "asmr-1",
+    title = "Rainy room",
+    uri = "https://example.com/audio/asmr-1/stream",
+    cacheKey = "audio-file-1",
+    mimeType = "audio/mpeg",
+    requestHeaders = mapOf(
+        "Authorization" to "Bearer <token>",
+        "X-Playback-Token" to "<playback-token>"
+    )
+)
+
+media.player.playMusics(listOf(protectedMusic), startIndex = 0)
 ```
 
 ### Lifecycle
@@ -305,6 +325,13 @@ val cacheStatuses by media.cache.statuses.collectAsState()
 
 // Cache specific music
 media.cache.preCacheMusic(url = "https://example.com/music.mp3", key = "music1")
+
+// Cache protected music without putting tokens in the URL
+media.cache.preCacheMusic(
+    url = "https://example.com/audio/asmr-1/stream",
+    key = "audio-file-1",
+    requestHeaders = protectedMusic.requestHeaders
+)
 
 // Check cache status
 val isCached = media.cache.checkMusicCached("music1")

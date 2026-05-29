@@ -110,7 +110,7 @@ internal class PlatformMediaPlaybackController(
 
     private fun playMusic(music: Music, playImmediately: Boolean) {
         val nsUrl = NSURL(string = music.uri)
-        val streamingAsset = createStreamingAsset(nsUrl)
+        val streamingAsset = createStreamingAsset(nsUrl, music.requestHeaders)
 
         if (!cacheRepository.enableCache) {
             prepareAndPlay(streamingAsset, music, playImmediately)
@@ -120,9 +120,24 @@ internal class PlatformMediaPlaybackController(
         handleCaching(nsUrl, streamingAsset, music, playImmediately)
     }
 
-    private fun createStreamingAsset(nsUrl: NSURL) = AVURLAsset(
-        nsUrl, mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
+    private fun createStreamingAsset(
+        nsUrl: NSURL,
+        requestHeaders: Map<String, String>,
+    ) = AVURLAsset(
+        nsUrl, streamingAssetOptions(requestHeaders)
     )
+
+    private fun streamingAssetOptions(requestHeaders: Map<String, String>): Map<Any?, Any?> {
+        val headers = requestHeaders.filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
+        return if (headers.isEmpty()) {
+            mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
+        } else {
+            mapOf<Any?, Any?>(
+                AVURLAssetPreferPreciseDurationAndTimingKey to true,
+                AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY to headers,
+            )
+        }
+    }
 
     private fun handleCaching(
         nsUrl: NSURL,
@@ -133,6 +148,7 @@ internal class PlatformMediaPlaybackController(
         cachingLoader.loadFileWithCaching(
             url = nsUrl,
             musicId = music.id,
+            requestHeaders = music.requestHeaders,
             onCompleteCaching = { handleCachingComplete(music) }
         ) { asset ->
             handleCachingResult(asset, streamingAsset, music, playImmediately)
@@ -379,3 +395,5 @@ private fun PlatformMediaPlaybackController.getMediaControlHandler(): MediaComma
         seekTo(positionMs)
     }
 }
+
+private const val AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY = "AVURLAssetHTTPHeaderFieldsKey"

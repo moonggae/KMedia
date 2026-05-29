@@ -169,6 +169,7 @@ internal class CachingMediaFileLoader(
     fun cacheFile(
         url: NSURL,
         musicId: String,
+        requestHeaders: Map<String, String> = emptyMap(),
         onCompletion: () -> Unit,
         onFail: () -> Unit
     ) {
@@ -201,7 +202,7 @@ internal class CachingMediaFileLoader(
             return
         }
 
-        val downloadTask = session.downloadTaskWithURL(url)
+        val downloadTask = session.downloadTaskWithRequest(url.downloadRequest(requestHeaders))
         val taskId = downloadTask.taskIdentifier.toLong()
         url.absoluteString?.let { absoluteString ->
             downloadTasks[taskId] = DownloadInfo(
@@ -218,15 +219,12 @@ internal class CachingMediaFileLoader(
     fun loadFileWithCaching(
         url: NSURL,
         musicId: String,
+        requestHeaders: Map<String, String> = emptyMap(),
         onCompleteCaching: () -> Unit,
         onGotAsset: (AVURLAsset?) -> Unit,
     ) {
         if (!cacheConfig.enable) {
-            val streamingAsset = AVURLAsset(
-                url, mapOf(
-                    AVURLAssetPreferPreciseDurationAndTimingKey to true
-                )
-            )
+            val streamingAsset = url.streamingAsset(requestHeaders)
             onGotAsset(streamingAsset)
             return
         }
@@ -249,11 +247,7 @@ internal class CachingMediaFileLoader(
             return
         }
 
-        val streamingAsset = AVURLAsset(
-            url, mapOf(
-                AVURLAssetPreferPreciseDurationAndTimingKey to true
-            )
-        )
+        val streamingAsset = url.streamingAsset(requestHeaders)
 
         onGotAsset(streamingAsset)
 
@@ -264,7 +258,7 @@ internal class CachingMediaFileLoader(
             return
         }
 
-        val downloadTask = session.downloadTaskWithURL(url)
+        val downloadTask = session.downloadTaskWithRequest(url.downloadRequest(requestHeaders))
         val taskId = downloadTask.taskIdentifier.toLong()
         url.absoluteString?.let { absoluteString ->
             downloadTasks[taskId] = DownloadInfo(
@@ -389,6 +383,29 @@ internal class CachingMediaFileLoader(
         val lastAccess: Double
     )
 
+    private fun NSURL.streamingAsset(requestHeaders: Map<String, String>): AVURLAsset =
+        AVURLAsset(this, streamingAssetOptions(requestHeaders))
+
+    private fun streamingAssetOptions(requestHeaders: Map<String, String>): Map<Any?, Any?> {
+        val headers = requestHeaders.sanitized()
+        return if (headers.isEmpty()) {
+            mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
+        } else {
+            mapOf<Any?, Any?>(
+                AVURLAssetPreferPreciseDurationAndTimingKey to true,
+                AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY to headers,
+            )
+        }
+    }
+
+    private fun NSURL.downloadRequest(requestHeaders: Map<String, String>): NSURLRequest {
+        val request = NSMutableURLRequest.requestWithURL(this)
+        requestHeaders.sanitized().forEach { (key, value) ->
+            request.setValue(value, forHTTPHeaderField = key)
+        }
+        return request
+    }
+
     fun cleanup() {
         downloadTasks.values.forEach { it.task.cancel() }
         downloadTasks.clear()
@@ -410,3 +427,8 @@ internal class CachingMediaFileLoader(
         return getUrlToIdMap().values.distinct()
     }
 }
+
+private fun Map<String, String>.sanitized(): Map<String, String> =
+    filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
+
+private const val AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY = "AVURLAssetHTTPHeaderFieldsKey"

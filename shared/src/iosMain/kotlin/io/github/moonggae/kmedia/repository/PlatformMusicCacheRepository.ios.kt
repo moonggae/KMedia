@@ -53,12 +53,17 @@ internal class PlatformMusicCacheRepository(
         }
     }
 
-    override suspend fun preCacheMusic(url: String, key: String) {
+    override suspend fun preCacheMusic(
+        url: String,
+        key: String,
+        requestHeaders: Map<String, String>,
+    ) {
         val nsUrl = NSURL(string = url)
 
         fileLoader.cacheFile(
             url = nsUrl,
             musicId = key,
+            requestHeaders = requestHeaders,
             onCompletion = {
                 coroutineScope.launch {
                     cacheStatusStore.update(key, CacheStatus.FULLY_CACHED)
