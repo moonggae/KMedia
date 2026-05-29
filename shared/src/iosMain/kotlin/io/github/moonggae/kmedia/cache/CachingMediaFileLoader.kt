@@ -1,5 +1,6 @@
 package io.github.moonggae.kmedia.cache
 
+import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
 import platform.AVFoundation.*
 import platform.Foundation.*
 import kotlinx.cinterop.*
@@ -387,7 +388,7 @@ internal class CachingMediaFileLoader(
         AVURLAsset(this, streamingAssetOptions(requestHeaders))
 
     private fun streamingAssetOptions(requestHeaders: Map<String, String>): Map<Any?, Any?> {
-        val headers = requestHeaders.sanitized()
+        val headers = requestHeaders.sanitizedRequestHeaders()
         return if (headers.isEmpty()) {
             mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
         } else {
@@ -400,7 +401,7 @@ internal class CachingMediaFileLoader(
 
     private fun NSURL.downloadRequest(requestHeaders: Map<String, String>): NSURLRequest {
         val request = NSMutableURLRequest.requestWithURL(this)
-        requestHeaders.sanitized().forEach { (key, value) ->
+        requestHeaders.sanitizedRequestHeaders().forEach { (key, value) ->
             request.setValue(value, forHTTPHeaderField = key)
         }
         return request
@@ -427,8 +428,5 @@ internal class CachingMediaFileLoader(
         return getUrlToIdMap().values.distinct()
     }
 }
-
-private fun Map<String, String>.sanitized(): Map<String, String> =
-    filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
 
 private const val AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY = "AVURLAssetHTTPHeaderFieldsKey"

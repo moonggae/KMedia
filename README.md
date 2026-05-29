@@ -185,6 +185,34 @@ val protectedMusic = Music(
 media.player.playMusics(listOf(protectedMusic), startIndex = 0)
 ```
 
+### Header Request Smoke Test
+
+To verify that playback requests actually carry per-track headers, run the local capture server:
+
+```bash
+python3 tools/request-header-smoke-server.py --port 18081
+```
+
+Then set `HEADER_SMOKE_URL` in `kmedia-sample/src/commonMain/kotlin/io/github/moonggae/kmedia/sample/SampleMusicRepository.kt`
+and run the sample app.
+
+```kotlin
+// Android emulator
+private const val HEADER_SMOKE_URL = "http://10.0.2.2:18081/audio.mp3"
+
+// iOS simulator
+private const val HEADER_SMOKE_URL = "http://127.0.0.1:18081/audio.mp3"
+```
+
+The smoke server prints request metadata like this, without logging token values:
+
+```json
+{"method":"GET","path":"/audio.mp3","authorization":true,"xPlaybackToken":true,"range":"bytes=0-"}
+```
+
+Use only fake smoke tokens when running this locally. Android HTTP smoke testing may require
+temporary cleartext traffic permission in the sample app.
+
 ### Lifecycle
 
 Call `KMedia.initialize(...)` once per app process before creating any `KMedia` instance.

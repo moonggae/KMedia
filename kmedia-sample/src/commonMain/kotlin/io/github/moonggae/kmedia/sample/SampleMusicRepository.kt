@@ -4,7 +4,7 @@ import io.github.moonggae.kmedia.sample.model.SampleMusic
 
 class SampleMusicRepository {
     fun getSampleMusicList(): List<SampleMusic> {
-        return listOf(
+        return headerSmokeMusicList() + listOf(
             SampleMusic(
                 id = "1c05b730-1455-40d2-b84c-30faf529de76",
                 title = "Stutterfly",
@@ -90,5 +90,31 @@ class SampleMusicRepository {
                 uri = "https://ncsmusic.s3.eu-west-1.amazonaws.com/tracks/000/001/814/ruins-1733446865-LQlnvzERhj.mp3"
             )
         )
+    }
+
+    private fun headerSmokeMusicList(): List<SampleMusic> =
+        if (HEADER_SMOKE_URL.isBlank()) {
+            emptyList()
+        } else {
+            listOf(
+                SampleMusic(
+                    id = "kmedia-header-smoke",
+                    title = "Header Smoke",
+                    artist = "Local capture server",
+                    coverUrl = "https://ncsmusic.s3.eu-west-1.amazonaws.com/tracks/000/001/857/1000x0/stutterfly-1740704455-NQ13SD2ADl.jpg",
+                    uri = HEADER_SMOKE_URL,
+                    mimeType = "audio/mpeg",
+                    requestHeaders = mapOf(
+                        "Authorization" to "Bearer smoke-auth",
+                        "X-Playback-Token" to "smoke-playback",
+                    ),
+                )
+            )
+        }
+
+    companion object {
+        // Android emulator: "http://10.0.2.2:18081/audio.mp3"
+        // iOS simulator: "http://127.0.0.1:18081/audio.mp3"
+        private const val HEADER_SMOKE_URL = ""
     }
 }

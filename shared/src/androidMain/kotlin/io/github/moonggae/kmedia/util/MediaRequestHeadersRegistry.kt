@@ -11,7 +11,7 @@ internal object MediaRequestHeadersRegistry {
         cacheKey: String,
         requestHeaders: Map<String, String>,
     ) {
-        val headers = requestHeaders.sanitized()
+        val headers = requestHeaders.sanitizedRequestHeaders()
         if (headers.isEmpty()) {
             headersByUri.remove(uri)
             headersByCacheKey.remove(cacheKey)
@@ -27,6 +27,3 @@ internal object MediaRequestHeadersRegistry {
             ?: uri?.let { headersByUri[it] }
             ?: emptyMap()
 }
-
-internal fun Map<String, String>.sanitized(): Map<String, String> =
-    filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }

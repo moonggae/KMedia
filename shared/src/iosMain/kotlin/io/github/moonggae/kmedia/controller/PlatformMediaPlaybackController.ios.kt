@@ -18,6 +18,7 @@ import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
 import io.github.moonggae.kmedia.session.PlaybackStateObserverManager
 import io.github.moonggae.kmedia.state.PlaybackStateManager
+import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +129,7 @@ internal class PlatformMediaPlaybackController(
     )
 
     private fun streamingAssetOptions(requestHeaders: Map<String, String>): Map<Any?, Any?> {
-        val headers = requestHeaders.filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
+        val headers = requestHeaders.sanitizedRequestHeaders()
         return if (headers.isEmpty()) {
             mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
         } else {

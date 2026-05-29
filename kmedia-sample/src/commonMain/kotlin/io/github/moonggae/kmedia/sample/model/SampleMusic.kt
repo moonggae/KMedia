@@ -9,6 +9,8 @@ data class SampleMusic(
     val artist: String,
     val coverUrl: String,
     val uri: String,
+    val mimeType: String? = null,
+    val requestHeaders: Map<String, String> = emptyMap(),
     val cacheStatus: CacheStatus = CacheStatus.NONE
 )
 
@@ -17,7 +19,9 @@ fun SampleMusic.toMusic() = Music(
     title = this.title,
     artist = this.artist,
     coverUrl = this.coverUrl,
-    uri = this.uri
+    uri = this.uri,
+    mimeType = this.mimeType,
+    requestHeaders = this.requestHeaders,
 )
 
 fun List<SampleMusic>.toMusics() = this.map { sample ->
@@ -26,6 +30,8 @@ fun List<SampleMusic>.toMusics() = this.map { sample ->
         title = sample.title,
         artist = sample.artist,
         coverUrl = sample.coverUrl,
-        uri = sample.uri
+        uri = sample.uri,
+        mimeType = sample.mimeType,
+        requestHeaders = sample.requestHeaders,
     )
 }

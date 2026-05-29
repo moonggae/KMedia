@@ -19,7 +19,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import io.github.moonggae.kmedia.util.MediaRequestHeadersRegistry
-import io.github.moonggae.kmedia.util.sanitized
+import io.github.moonggae.kmedia.util.mergeRequestHeaders
+import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -135,10 +136,15 @@ internal class CacheManager(
     private fun requestHeaderDataSourceFactory(
         requestHeaders: Map<String, String> = emptyMap(),
     ): ResolvingDataSource.Factory {
-        val headers = requestHeaders.sanitized()
+        val headers = requestHeaders.sanitizedRequestHeaders()
         return ResolvingDataSource.Factory(DefaultDataSource.Factory(context)) { dataSpec ->
-            val resolvedHeaders = MediaRequestHeadersRegistry
-                .resolve(dataSpec.uri.toString(), dataSpec.key) + headers
+            val resolvedHeaders = mergeRequestHeaders(
+                registeredHeaders = MediaRequestHeadersRegistry.resolve(
+                    uri = dataSpec.uri.toString(),
+                    cacheKey = dataSpec.key,
+                ),
+                requestHeaders = headers,
+            )
             if (resolvedHeaders.isEmpty()) {
                 dataSpec
             } else {
