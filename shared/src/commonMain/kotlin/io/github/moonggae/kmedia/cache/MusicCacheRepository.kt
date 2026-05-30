@@ -16,7 +16,11 @@ interface MusicCacheRepository {
 
     suspend fun removeCachedMusic(vararg keys: String)
 
-    suspend fun preCacheMusic(url: String, key: String)
+    suspend fun preCacheMusic(
+        url: String,
+        key: String,
+        requestHeaders: Map<String, String> = emptyMap(),
+    )
 
     suspend fun checkMusicCached(key: String): Boolean
 }

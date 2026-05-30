@@ -53,11 +53,7 @@ class PlaybackService : MediaLibraryService() {
             .setDeviceVolumeControlEnabled(true)
             .setHandleAudioBecomingNoisy(true)
 
-        if (cacheManager.enableCache) {
-            cacheManager.getProgressiveMediaSourceFactory(applicationContext)?.let { mediaSourceFactory ->
-                builder.setMediaSourceFactory(mediaSourceFactory)
-            }
-        }
+        builder.setMediaSourceFactory(cacheManager.getProgressiveMediaSourceFactory())
 
         return builder.build().apply {
             playbackStateHandler.attachTo(this)

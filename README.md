@@ -30,6 +30,7 @@ Audio player library built with Kotlin Multiplatform (KMP). It provides a consis
 - Playback state and position monitoring
 - Background playback support
 - Control Center (iOS) and Media Notification (Android) integration
+- Per-track HTTP request headers for protected streaming URLs
 
 ## Setup
 
@@ -164,6 +165,53 @@ media.player.next()
 // Seek to position
 media.player.seekTo(positionMs = 30000)
 ```
+
+For protected audio streams, attach request headers to each `Music` item. Headers are
+kept in memory for playback and are not used as cache keys.
+
+```kotlin
+val protectedMusic = Music(
+    id = "asmr-1",
+    title = "Rainy room",
+    uri = "https://example.com/audio/asmr-1/stream",
+    cacheKey = "audio-file-1",
+    mimeType = "audio/mpeg",
+    requestHeaders = mapOf(
+        "Authorization" to "Bearer <token>",
+        "X-Playback-Token" to "<playback-token>"
+    )
+)
+
+media.player.playMusics(listOf(protectedMusic), startIndex = 0)
+```
+
+### Header Request Smoke Test
+
+To verify that playback requests actually carry per-track headers, run the local capture server:
+
+```bash
+python3 tools/request-header-smoke-server.py --port 18081
+```
+
+Then set `HEADER_SMOKE_URL` in `kmedia-sample/src/commonMain/kotlin/io/github/moonggae/kmedia/sample/SampleMusicRepository.kt`
+and run the sample app.
+
+```kotlin
+// Android emulator
+private const val HEADER_SMOKE_URL = "http://10.0.2.2:18081/audio.mp3"
+
+// iOS simulator
+private const val HEADER_SMOKE_URL = "http://127.0.0.1:18081/audio.mp3"
+```
+
+The smoke server prints request metadata like this, without logging token values:
+
+```json
+{"method":"GET","path":"/audio.mp3","authorization":true,"xPlaybackToken":true,"range":"bytes=0-"}
+```
+
+Use only fake smoke tokens when running this locally. Android HTTP smoke testing may require
+temporary cleartext traffic permission in the sample app.
 
 ### Lifecycle
 
@@ -305,6 +353,13 @@ val cacheStatuses by media.cache.statuses.collectAsState()
 
 // Cache specific music
 media.cache.preCacheMusic(url = "https://example.com/music.mp3", key = "music1")
+
+// Cache protected music without putting tokens in the URL
+media.cache.preCacheMusic(
+    url = "https://example.com/audio/asmr-1/stream",
+    key = "audio-file-1",
+    requestHeaders = protectedMusic.requestHeaders
+)
 
 // Check cache status
 val isCached = media.cache.checkMusicCached("music1")
