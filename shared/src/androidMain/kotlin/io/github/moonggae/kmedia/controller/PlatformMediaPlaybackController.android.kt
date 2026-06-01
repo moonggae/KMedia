@@ -17,7 +17,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.asDeferred
-import kotlinx.coroutines.launch
 
 internal class PlatformMediaPlaybackController(
     private val context: Context,
@@ -32,6 +31,12 @@ internal class PlatformMediaPlaybackController(
     private val scope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    private val commandController = ScopedMediaPlaybackCommandController(
+        targetProvider = { AndroidMediaPlaybackCommandTarget(activeControllerDeferred.await()) },
+        scope = scope,
+        onRelease = { scope.cancel() },
+    )
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val activeControllerDeferred: Deferred<MediaController>
         get() {
@@ -45,66 +50,107 @@ internal class PlatformMediaPlaybackController(
             return controllerDeferred
         }
 
-    override fun seekTo(positionMs: Long) = executeAfterPrepare { controller ->
+    override fun seekTo(positionMs: Long) = commandController.seekTo(positionMs)
+
+    override fun setRepeatMode(repeatMode: RepeatMode) = commandController.setRepeatMode(repeatMode)
+
+    override fun setShuffleMode(isOn: Boolean) = commandController.setShuffleMode(isOn)
+
+    override fun previous() = commandController.previous()
+
+    override fun next() = commandController.next()
+
+    override fun play() = commandController.play()
+
+    override fun pause() = commandController.pause()
+
+    override fun moveMediaItem(currentIndex: Int, newIndex: Int) =
+        commandController.moveMediaItem(currentIndex, newIndex)
+
+    override fun skipTo(musicIndex: Int) = commandController.skipTo(musicIndex)
+
+    override fun setSpeed(speed: Float) = commandController.setSpeed(speed)
+
+    override fun prepare(musics: List<Music>, index: Int, positionMs: Long) =
+        commandController.prepare(musics, index, positionMs)
+
+    override fun playMusics(musics: List<Music>, startIndex: Int) =
+        commandController.playMusics(musics, startIndex)
+
+    override fun stop() = commandController.stop()
+
+    override fun appendMusics(musics: List<Music>) = commandController.appendMusics(musics)
+
+    override fun removeMusics(vararg musicId: String) = commandController.removeMusics(*musicId)
+
+    override fun replaceMusic(index: Int, music: Music) = commandController.replaceMusic(index, music)
+
+    override fun release() = commandController.release()
+
+    override fun setMuted(muted: Boolean, androidFlags: Int) =
+        commandController.setMuted(muted, androidFlags)
+
+    override fun setVolume(volume: Float, androidFlags: Int) =
+        commandController.setVolume(volume, androidFlags)
+}
+
+private class AndroidMediaPlaybackCommandTarget(
+    private val controller: MediaController,
+) : MediaPlaybackCommandTarget {
+    override suspend fun seekTo(positionMs: Long) {
         controller.seekTo(positionMs)
     }
 
-    override fun setRepeatMode(repeatMode: RepeatMode) = executeAfterPrepare { controller ->
+    override suspend fun setRepeatMode(repeatMode: RepeatMode) {
         controller.setRepeatMode(repeatMode.value)
     }
 
-    override fun setShuffleMode(isOn: Boolean) = executeAfterPrepare { controller ->
+    override suspend fun setShuffleMode(isOn: Boolean) {
         controller.setShuffleModeEnabled(isOn)
     }
 
-    override fun previous() = executeAfterPrepare { controller ->
+    override suspend fun previous() {
         controller.seekToPrevious()
     }
 
-    override fun next() = executeAfterPrepare { controller ->
+    override suspend fun next() {
         controller.seekToNext()
     }
 
-    override fun play() = executeAfterPrepare { controller ->
+    override suspend fun play() {
         controller.play()
     }
 
-    override fun pause() = executeAfterPrepare { controller ->
+    override suspend fun pause() {
         controller.pause()
     }
 
-    override fun moveMediaItem(currentIndex: Int, newIndex: Int) = executeAfterPrepare { controller ->
+    override suspend fun moveMediaItem(currentIndex: Int, newIndex: Int) {
         controller.moveMediaItem(currentIndex, newIndex)
     }
 
-    override fun skipTo(musicIndex: Int) = executeAfterPrepare { controller ->
+    override suspend fun skipTo(musicIndex: Int) {
         controller.seekToDefaultPosition(musicIndex)
     }
 
-    override fun setSpeed(speed: Float) = executeAfterPrepare { controller ->
+    override suspend fun setSpeed(speed: Float) {
         controller.setPlaybackSpeed(speed)
     }
 
-    override fun prepare(musics: List<Music>, index: Int, positionMs: Long) = executeAfterPrepare { controller ->
+    override suspend fun prepare(musics: List<Music>, index: Int, positionMs: Long) {
         controller.setMediaItems(musics.map { it.asMediaItem() }, index, positionMs)
         controller.prepare()
     }
 
-    override fun playMusics(musics: List<Music>, startIndex: Int) = executeAfterPrepare { controller ->
-        prepare(musics, startIndex, 0)
-        controller.play()
-    }
-
-    override fun stop() = executeAfterPrepare { controller ->
+    override suspend fun stop() {
         controller.stop()
-        controller.release()
     }
 
-    override fun appendMusics(musics: List<Music>) = executeAfterPrepare { controller ->
+    override suspend fun appendMusics(musics: List<Music>) {
         controller.addMediaItems(musics.map { it.asMediaItem() })
     }
 
-    override fun removeMusics(vararg musicId: String) = executeAfterPrepare { controller ->
+    override suspend fun removeMusics(vararg musicId: String) {
         musicId.forEach { id ->
             controller.mediaItems.find { it.mediaId == id }?.let { mediaItem ->
                 controller.getMediaItemIndex(mediaItem)?.let { index ->
@@ -114,34 +160,28 @@ internal class PlatformMediaPlaybackController(
         }
     }
 
-    override fun replaceMusic(index: Int, music: Music) = executeAfterPrepare { controller ->
+    override suspend fun replaceMusic(index: Int, music: Music) {
         controller.replaceMediaItem(index, music.asMediaItem())
     }
 
-    override fun release() = executeAfterPrepare { controller ->
-        controller.stop()
-        controller.clearMediaItems()
-        controller.release()
-        scope.cancel()
-    }
-
-    override fun setMuted(muted: Boolean, androidFlags: Int) = executeAfterPrepare { controller ->
+    override suspend fun setMuted(muted: Boolean, androidFlags: Int) {
         controller.setDeviceMuted(muted, androidFlags)
     }
 
-    override fun setVolume(volume: Float, androidFlags: Int) = executeAfterPrepare { controller ->
-        println(controller.deviceInfo.minVolume)
-        val minVolume = controller.deviceInfo.minVolume
-        val maxVolume = controller.deviceInfo.maxVolume
-        val scaledVolume = minVolume + (volume * (maxVolume - minVolume)).toInt()
-        val boundedVolume = scaledVolume.coerceIn(minVolume, maxVolume)
+    override suspend fun setVolume(volume: Float, androidFlags: Int) {
+        val boundedVolume = scaleDeviceVolume(
+            volume = volume,
+            minVolume = controller.deviceInfo.minVolume,
+            maxVolume = controller.deviceInfo.maxVolume,
+        )
         controller.setDeviceVolume(boundedVolume, androidFlags)
     }
 
-    private inline fun executeAfterPrepare(crossinline action: suspend (MediaController) -> Unit) {
-        scope.launch {
-            val controller = activeControllerDeferred.await()
-            action(controller)
-        }
+    override suspend fun clearMediaItems() {
+        controller.clearMediaItems()
+    }
+
+    override suspend fun release() {
+        controller.release()
     }
 }
