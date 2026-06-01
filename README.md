@@ -1,5 +1,6 @@
 # KMedia - KMP Music Player Library
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.moonggae/kmedia)](https://mvnrepository.com/artifact/io.github.moonggae/kmedia)
+[![CI](https://github.com/moonggae/KMedia/actions/workflows/ci.yml/badge.svg)](https://github.com/moonggae/KMedia/actions/workflows/ci.yml)
 
 Audio player library built with Kotlin Multiplatform (KMP). It provides a consistent API for music playback functionality across both Android and iOS.
 
