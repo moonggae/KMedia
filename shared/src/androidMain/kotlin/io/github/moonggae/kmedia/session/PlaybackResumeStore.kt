@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import androidx.media3.common.Player
 import io.github.moonggae.kmedia.model.Music
+import io.github.moonggae.kmedia.util.MediaRequestHeadersRegistry
 import io.github.moonggae.kmedia.util.asMusic
 import io.github.moonggae.kmedia.util.mediaItems
 import org.json.JSONArray
@@ -19,6 +20,11 @@ internal class PlaybackResumeStore(
     private var lastSavedElapsedMs: Long = 0L
 
     fun save(player: Player, force: Boolean = false) {
+        if (player.hasProtectedMediaItems()) {
+            clear()
+            return
+        }
+
         val snapshot = player.toResumeSnapshot() ?: return
         if (!force && !shouldPersist(snapshot)) return
 
@@ -104,6 +110,11 @@ private fun Player.toResumeSnapshot(): PlaybackResumeSnapshot? {
     )
 }
 
+private fun Player.hasProtectedMediaItems(): Boolean =
+    mediaItems.any { mediaItem ->
+        MediaRequestHeadersRegistry.hasHeaders(mediaItem.mediaId)
+    }
+
 private fun PlaybackResumeSnapshot.toJson(): JSONObject = JSONObject()
     .put(PlaybackResumeStoreKeys.VERSION, PlaybackResumeStoreKeys.VERSION_VALUE)
     .put(PlaybackResumeStoreKeys.ITEMS, musics.toJson())
@@ -123,6 +134,8 @@ private fun List<Music>.toJson(): JSONArray = JSONArray().also { array ->
                 .putNullable(PlaybackResumeStoreKeys.MUSIC_ARTIST, music.artist)
                 .putNullable(PlaybackResumeStoreKeys.MUSIC_COVER_URL, music.coverUrl)
                 .put(PlaybackResumeStoreKeys.MUSIC_URI, music.uri)
+                .put(PlaybackResumeStoreKeys.MUSIC_CACHE_KEY, music.cacheKey)
+                .putNullable(PlaybackResumeStoreKeys.MUSIC_MIME_TYPE, music.mimeType)
         )
     }
 }
@@ -151,13 +164,18 @@ private fun JSONArray.toMusics(): List<Music> = buildList {
     for (index in 0 until length()) {
         val item = optJSONObject(index) ?: continue
         val uri = item.optString(PlaybackResumeStoreKeys.MUSIC_URI).takeIf { it.isNotBlank() } ?: continue
+        val id = item.optString(PlaybackResumeStoreKeys.MUSIC_ID).takeIf { it.isNotBlank() } ?: uri
         add(
             Music(
-                id = item.optString(PlaybackResumeStoreKeys.MUSIC_ID).takeIf { it.isNotBlank() } ?: uri,
+                id = id,
                 title = item.optNullableString(PlaybackResumeStoreKeys.MUSIC_TITLE),
                 artist = item.optNullableString(PlaybackResumeStoreKeys.MUSIC_ARTIST),
                 coverUrl = item.optNullableString(PlaybackResumeStoreKeys.MUSIC_COVER_URL),
                 uri = uri,
+                cacheKey = item.optNullableString(PlaybackResumeStoreKeys.MUSIC_CACHE_KEY)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: id,
+                mimeType = item.optNullableString(PlaybackResumeStoreKeys.MUSIC_MIME_TYPE),
             )
         )
     }
@@ -184,4 +202,6 @@ private object PlaybackResumeStoreKeys {
     const val MUSIC_ARTIST = "artist"
     const val MUSIC_COVER_URL = "coverUrl"
     const val MUSIC_URI = "uri"
+    const val MUSIC_CACHE_KEY = "cacheKey"
+    const val MUSIC_MIME_TYPE = "mimeType"
 }

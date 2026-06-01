@@ -2,11 +2,14 @@ package io.github.moonggae.kmedia.cache
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheSpan
@@ -16,7 +19,12 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
+import io.github.moonggae.kmedia.util.MediaRequestHeadersRegistry
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -118,14 +126,31 @@ internal class CacheManager(
         cache?.removeResource(key)
     }
 
-    fun getProgressiveMediaSourceFactory(context: Context): ProgressiveMediaSource.Factory? {
+    fun getProgressiveMediaSourceFactory(): MediaSource.Factory =
+        RequestHeaderMediaSourceFactory()
+
+    private fun dataSourceFactory(
+        requestHeaders: Map<String, String>,
+    ): DataSource.Factory {
+        val upstreamDataSourceFactory = requestHeaderDataSourceFactory(requestHeaders)
         return cache?.let { nonNullCache ->
-            val cacheDataSourceFactory = CacheDataSource.Factory()
+            CacheDataSource.Factory()
                 .setCacheKeyFactory { it.key ?: "" }
                 .setCache(nonNullCache)
-                .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context))
+                .setUpstreamDataSourceFactory(upstreamDataSourceFactory)
+        } ?: upstreamDataSourceFactory
+    }
 
-            ProgressiveMediaSource.Factory(cacheDataSourceFactory)
+    private fun requestHeaderDataSourceFactory(
+        requestHeaders: Map<String, String>,
+    ): ResolvingDataSource.Factory {
+        val headers = requestHeaders.sanitizedRequestHeaders()
+        return ResolvingDataSource.Factory(DefaultDataSource.Factory(context)) { dataSpec ->
+            if (headers.isEmpty()) {
+                dataSpec
+            } else {
+                dataSpec.withAdditionalHeaders(headers)
+            }
         }
     }
 
@@ -133,6 +158,7 @@ internal class CacheManager(
     suspend fun preCacheMedia(
         url: String,
         key: String,
+        requestHeaders: Map<String, String> = emptyMap(),
     ) {
         if (!enableCache) return
 
@@ -140,13 +166,16 @@ internal class CacheManager(
             val cacheDataSourceFactory = CacheDataSource.Factory()
                 .setCacheKeyFactory { key }
                 .setCache(nonNullCache)
-                .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context))
+                .setUpstreamDataSourceFactory(requestHeaderDataSourceFactory(requestHeaders))
                 .setFlags(
                     CacheDataSource.FLAG_BLOCK_ON_CACHE or    // 캐시 우선
                             CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR // 캐시 에러시 원본 사용
                 )
 
-            val mediaItem = MediaItem.fromUri(url)
+            val mediaItem = MediaItem.Builder()
+                .setUri(url)
+                .setCustomCacheKey(key)
+                .build()
             val mediaSource = ProgressiveMediaSource.Factory(cacheDataSourceFactory)
                 .createMediaSource(mediaItem)
 
@@ -175,6 +204,37 @@ internal class CacheManager(
             } finally {
                 player.release()
             }
+        }
+    }
+
+    private inner class RequestHeaderMediaSourceFactory : MediaSource.Factory {
+        private var drmSessionManagerProvider: DrmSessionManagerProvider? = null
+        private var loadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
+
+        override fun setDrmSessionManagerProvider(
+            drmSessionManagerProvider: DrmSessionManagerProvider,
+        ): MediaSource.Factory {
+            this.drmSessionManagerProvider = drmSessionManagerProvider
+            return this
+        }
+
+        override fun setLoadErrorHandlingPolicy(
+            loadErrorHandlingPolicy: LoadErrorHandlingPolicy,
+        ): MediaSource.Factory {
+            this.loadErrorHandlingPolicy = loadErrorHandlingPolicy
+            return this
+        }
+
+        override fun getSupportedTypes(): IntArray = intArrayOf(C.CONTENT_TYPE_OTHER)
+
+        override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+            val requestHeaders = MediaRequestHeadersRegistry.resolve(mediaItem.mediaId)
+            return ProgressiveMediaSource.Factory(dataSourceFactory(requestHeaders))
+                .also { factory ->
+                    drmSessionManagerProvider?.let(factory::setDrmSessionManagerProvider)
+                    loadErrorHandlingPolicy?.let(factory::setLoadErrorHandlingPolicy)
+                }
+                .createMediaSource(mediaItem)
         }
     }
 

@@ -18,6 +18,7 @@ import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
 import io.github.moonggae.kmedia.session.PlaybackStateObserverManager
 import io.github.moonggae.kmedia.state.PlaybackStateManager
+import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +111,7 @@ internal class PlatformMediaPlaybackController(
 
     private fun playMusic(music: Music, playImmediately: Boolean) {
         val nsUrl = NSURL(string = music.uri)
-        val streamingAsset = createStreamingAsset(nsUrl)
+        val streamingAsset = createStreamingAsset(nsUrl, music.requestHeaders)
 
         if (!cacheRepository.enableCache) {
             prepareAndPlay(streamingAsset, music, playImmediately)
@@ -120,9 +121,24 @@ internal class PlatformMediaPlaybackController(
         handleCaching(nsUrl, streamingAsset, music, playImmediately)
     }
 
-    private fun createStreamingAsset(nsUrl: NSURL) = AVURLAsset(
-        nsUrl, mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
+    private fun createStreamingAsset(
+        nsUrl: NSURL,
+        requestHeaders: Map<String, String>,
+    ) = AVURLAsset(
+        nsUrl, streamingAssetOptions(requestHeaders)
     )
+
+    private fun streamingAssetOptions(requestHeaders: Map<String, String>): Map<Any?, Any?> {
+        val headers = requestHeaders.sanitizedRequestHeaders()
+        return if (headers.isEmpty()) {
+            mapOf(AVURLAssetPreferPreciseDurationAndTimingKey to true)
+        } else {
+            mapOf<Any?, Any?>(
+                AVURLAssetPreferPreciseDurationAndTimingKey to true,
+                AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY to headers,
+            )
+        }
+    }
 
     private fun handleCaching(
         nsUrl: NSURL,
@@ -132,7 +148,8 @@ internal class PlatformMediaPlaybackController(
     ) {
         cachingLoader.loadFileWithCaching(
             url = nsUrl,
-            musicId = music.id,
+            musicId = music.cacheKey,
+            requestHeaders = music.requestHeaders,
             onCompleteCaching = { handleCachingComplete(music) }
         ) { asset ->
             handleCachingResult(asset, streamingAsset, music, playImmediately)
@@ -159,7 +176,7 @@ internal class PlatformMediaPlaybackController(
     ) {
         prepareAndPlay(streamingAsset, music, playImmediately)
         scope.launch(Dispatchers.IO) {
-            cacheStatusStore.update(music.id, CacheStatus.NONE)
+            cacheStatusStore.update(music.cacheKey, CacheStatus.NONE)
         }
     }
 
@@ -167,7 +184,7 @@ internal class PlatformMediaPlaybackController(
         music: Music,
     ) {
         scope.launch(Dispatchers.IO) {
-            cacheStatusStore.update(music.id, CacheStatus.FULLY_CACHED)
+            cacheStatusStore.update(music.cacheKey, CacheStatus.FULLY_CACHED)
         }
     }
 
@@ -197,7 +214,7 @@ internal class PlatformMediaPlaybackController(
             } else {
                 // fallback: 다음 곡으로
                 scope.launch(Dispatchers.IO) {
-                    cacheStatusStore.update(music.id, CacheStatus.NONE)
+                    cacheStatusStore.update(music.cacheKey, CacheStatus.NONE)
                 }
                 next()
             }
@@ -379,3 +396,5 @@ private fun PlatformMediaPlaybackController.getMediaControlHandler(): MediaComma
         seekTo(positionMs)
     }
 }
+
+private const val AV_URL_ASSET_HTTP_HEADER_FIELDS_KEY = "AVURLAssetHTTPHeaderFieldsKey"

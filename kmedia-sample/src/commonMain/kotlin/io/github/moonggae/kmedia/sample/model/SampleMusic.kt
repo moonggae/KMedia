@@ -17,7 +17,7 @@ fun SampleMusic.toMusic() = Music(
     title = this.title,
     artist = this.artist,
     coverUrl = this.coverUrl,
-    uri = this.uri
+    uri = this.uri,
 )
 
 fun List<SampleMusic>.toMusics() = this.map { sample ->
@@ -26,6 +26,6 @@ fun List<SampleMusic>.toMusics() = this.map { sample ->
         title = sample.title,
         artist = sample.artist,
         coverUrl = sample.coverUrl,
-        uri = sample.uri
+        uri = sample.uri,
     )
 }

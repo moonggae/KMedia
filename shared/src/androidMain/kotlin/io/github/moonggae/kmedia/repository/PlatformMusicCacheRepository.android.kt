@@ -12,11 +12,13 @@ import io.github.moonggae.kmedia.cache.CacheMediaItemWorker
 import io.github.moonggae.kmedia.cache.CacheStatus
 import io.github.moonggae.kmedia.cache.CacheStatusStore
 import io.github.moonggae.kmedia.cache.MusicCacheRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withContext
 
 internal class PlatformMusicCacheRepository(
     private val cacheManager: CacheManager,
@@ -50,7 +52,24 @@ internal class PlatformMusicCacheRepository(
 
     override suspend fun checkMusicCached(key: String) = cacheManager.checkItemCached(key) ?: false
 
-    override suspend fun preCacheMusic(url: String, key: String) {
+    override suspend fun preCacheMusic(
+        url: String,
+        key: String,
+        requestHeaders: Map<String, String>,
+    ) {
+        if (requestHeaders.isNotEmpty()) {
+            runCatching {
+                withContext(Dispatchers.Main) {
+                    cacheManager.preCacheMedia(url, key, requestHeaders)
+                }
+            }.onSuccess {
+                cacheStatusStore.update(key, CacheStatus.FULLY_CACHED)
+            }.onFailure {
+                cacheStatusStore.update(key, CacheStatus.NONE)
+            }
+            return
+        }
+
         val workData = workDataOf(
             CacheMediaItemWorker.KEY_URL to url,
             CacheMediaItemWorker.KEY_CACHE_KEY to key
