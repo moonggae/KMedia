@@ -12,8 +12,7 @@ import io.github.moonggae.kmedia.model.Music
 @OptIn(UnstableApi::class)
 internal fun Music.asMediaItem(): MediaItem {
     MediaRequestHeadersRegistry.register(
-        uri = uri,
-        cacheKey = cacheKey,
+        mediaId = id,
         requestHeaders = requestHeaders,
     )
     return MediaItem.Builder()

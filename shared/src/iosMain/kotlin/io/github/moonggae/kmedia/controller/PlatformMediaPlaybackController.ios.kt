@@ -148,7 +148,7 @@ internal class PlatformMediaPlaybackController(
     ) {
         cachingLoader.loadFileWithCaching(
             url = nsUrl,
-            musicId = music.id,
+            musicId = music.cacheKey,
             requestHeaders = music.requestHeaders,
             onCompleteCaching = { handleCachingComplete(music) }
         ) { asset ->
@@ -176,7 +176,7 @@ internal class PlatformMediaPlaybackController(
     ) {
         prepareAndPlay(streamingAsset, music, playImmediately)
         scope.launch(Dispatchers.IO) {
-            cacheStatusStore.update(music.id, CacheStatus.NONE)
+            cacheStatusStore.update(music.cacheKey, CacheStatus.NONE)
         }
     }
 
@@ -184,7 +184,7 @@ internal class PlatformMediaPlaybackController(
         music: Music,
     ) {
         scope.launch(Dispatchers.IO) {
-            cacheStatusStore.update(music.id, CacheStatus.FULLY_CACHED)
+            cacheStatusStore.update(music.cacheKey, CacheStatus.FULLY_CACHED)
         }
     }
 
@@ -214,7 +214,7 @@ internal class PlatformMediaPlaybackController(
             } else {
                 // fallback: 다음 곡으로
                 scope.launch(Dispatchers.IO) {
-                    cacheStatusStore.update(music.id, CacheStatus.NONE)
+                    cacheStatusStore.update(music.cacheKey, CacheStatus.NONE)
                 }
                 next()
             }

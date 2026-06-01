@@ -43,9 +43,10 @@ internal class PlaybackIOHandler(
 
     @OptIn(UnstableApi::class)
     suspend fun setupCacheListener(mediaItem: MediaItem) {
-        cacheManager.observeCacheUpdate(mediaItem.mediaId).collect { isFullyCached ->
+        val cacheKey = mediaItem.localConfiguration?.customCacheKey ?: mediaItem.mediaId
+        cacheManager.observeCacheUpdate(cacheKey).collect { isFullyCached ->
             cacheStatusStore.update(
-                musicId = mediaItem.mediaId,
+                musicId = cacheKey,
                 status = if (isFullyCached) CacheStatus.FULLY_CACHED else CacheStatus.PARTIALLY_CACHED
             )
         }

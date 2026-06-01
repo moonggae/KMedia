@@ -2,8 +2,10 @@ package io.github.moonggae.kmedia.cache
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
@@ -17,10 +19,12 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
-import io.github.moonggae.kmedia.util.MediaRequestHeadersRegistry
-import io.github.moonggae.kmedia.util.mergeRequestHeaders
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
+import io.github.moonggae.kmedia.util.MediaRequestHeadersRegistry
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -122,33 +126,30 @@ internal class CacheManager(
         cache?.removeResource(key)
     }
 
-    fun getProgressiveMediaSourceFactory(): ProgressiveMediaSource.Factory {
-        val dataSourceFactory = cache?.let { nonNullCache ->
+    fun getProgressiveMediaSourceFactory(): MediaSource.Factory =
+        RequestHeaderMediaSourceFactory()
+
+    private fun dataSourceFactory(
+        requestHeaders: Map<String, String>,
+    ): DataSource.Factory {
+        val upstreamDataSourceFactory = requestHeaderDataSourceFactory(requestHeaders)
+        return cache?.let { nonNullCache ->
             CacheDataSource.Factory()
                 .setCacheKeyFactory { it.key ?: "" }
                 .setCache(nonNullCache)
-                .setUpstreamDataSourceFactory(requestHeaderDataSourceFactory())
-        } ?: requestHeaderDataSourceFactory()
-
-        return ProgressiveMediaSource.Factory(dataSourceFactory)
+                .setUpstreamDataSourceFactory(upstreamDataSourceFactory)
+        } ?: upstreamDataSourceFactory
     }
 
     private fun requestHeaderDataSourceFactory(
-        requestHeaders: Map<String, String> = emptyMap(),
+        requestHeaders: Map<String, String>,
     ): ResolvingDataSource.Factory {
         val headers = requestHeaders.sanitizedRequestHeaders()
         return ResolvingDataSource.Factory(DefaultDataSource.Factory(context)) { dataSpec ->
-            val resolvedHeaders = mergeRequestHeaders(
-                registeredHeaders = MediaRequestHeadersRegistry.resolve(
-                    uri = dataSpec.uri.toString(),
-                    cacheKey = dataSpec.key,
-                ),
-                requestHeaders = headers,
-            )
-            if (resolvedHeaders.isEmpty()) {
+            if (headers.isEmpty()) {
                 dataSpec
             } else {
-                dataSpec.withAdditionalHeaders(resolvedHeaders)
+                dataSpec.withAdditionalHeaders(headers)
             }
         }
     }
@@ -203,6 +204,37 @@ internal class CacheManager(
             } finally {
                 player.release()
             }
+        }
+    }
+
+    private inner class RequestHeaderMediaSourceFactory : MediaSource.Factory {
+        private var drmSessionManagerProvider: DrmSessionManagerProvider? = null
+        private var loadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
+
+        override fun setDrmSessionManagerProvider(
+            drmSessionManagerProvider: DrmSessionManagerProvider,
+        ): MediaSource.Factory {
+            this.drmSessionManagerProvider = drmSessionManagerProvider
+            return this
+        }
+
+        override fun setLoadErrorHandlingPolicy(
+            loadErrorHandlingPolicy: LoadErrorHandlingPolicy,
+        ): MediaSource.Factory {
+            this.loadErrorHandlingPolicy = loadErrorHandlingPolicy
+            return this
+        }
+
+        override fun getSupportedTypes(): IntArray = intArrayOf(C.CONTENT_TYPE_OTHER)
+
+        override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+            val requestHeaders = MediaRequestHeadersRegistry.resolve(mediaItem.mediaId)
+            return ProgressiveMediaSource.Factory(dataSourceFactory(requestHeaders))
+                .also { factory ->
+                    drmSessionManagerProvider?.let(factory::setDrmSessionManagerProvider)
+                    loadErrorHandlingPolicy?.let(factory::setLoadErrorHandlingPolicy)
+                }
+                .createMediaSource(mediaItem)
         }
     }
 
