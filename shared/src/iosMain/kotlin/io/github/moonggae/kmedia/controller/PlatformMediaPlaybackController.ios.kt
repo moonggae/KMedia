@@ -314,16 +314,39 @@ internal class PlatformMediaPlaybackController(
     }
 
     override fun removeMusics(vararg musicId: String) {
-        var nextMusic: Music? = null
+        var shouldStop = false
+        var replacementMusic: Music? = null
         musicId.forEach { id ->
-            nextMusic = playlistManager.removeMusic(id)
+            when (val result = playlistManager.removeMusicWithResult(id)) {
+                is PlaylistRemovalResult.RemovedCurrent -> {
+                    shouldStop = false
+                    replacementMusic = result.replacementMusic
+                }
+
+                PlaylistRemovalResult.PlaylistBecameEmpty -> {
+                    shouldStop = true
+                    replacementMusic = null
+                }
+
+                is PlaylistRemovalResult.RemovedNonCurrent,
+                PlaylistRemovalResult.NotFound -> Unit
+            }
         }
-        if (nextMusic != null) {
-            setMusic(nextMusic!!)
-        } else {
-            stop()
+        val musicToLoad = replacementMusic
+        when {
+            shouldStop -> {
+                stop()
+            }
+
+            musicToLoad != null -> {
+                setMusic(musicToLoad)
+                updatePlaybackState()
+            }
+
+            else -> {
+                updatePlaybackState()
+            }
         }
-        updatePlaybackState()
     }
 
     override fun replaceMusic(index: Int, music: Music) {

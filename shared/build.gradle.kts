@@ -44,6 +44,10 @@ kotlin {
             implementation(compose.runtime)
         }
 
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.guava)
 

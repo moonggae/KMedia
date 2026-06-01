@@ -2,130 +2,60 @@ package io.github.moonggae.kmedia.controller
 
 import io.github.moonggae.kmedia.model.Music
 import io.github.moonggae.kmedia.model.RepeatMode
-import io.github.moonggae.kmedia.util.reorder
 
-// Playlist Manager
 class PlaylistManager {
-    private val playlist = mutableListOf<Music>()
-    var currentIndex = 0
-        private set
-    private val shuffleManager = ShuffleManager()
+    private val state = PlaylistState()
 
-    var repeatMode = RepeatMode.REPEAT_MODE_OFF
-        private set
-    var isShuffleOn = false
-        private set
-
-    fun getCurrentMusic(): Music? = playlist.getOrNull(currentIndex)
-    fun getPlaylist(): List<Music> = playlist.toList()
-
-    fun updatePlaylist(musics: List<Music>, startIndex: Int) {
-        playlist.clear()
-        playlist.addAll(musics)
-        currentIndex = startIndex.coerceIn(0, playlist.lastIndex)
-        if (isShuffleOn) {
-            shuffleManager.updateShuffleIndices(currentIndex, playlist.size)
-        }
-    }
-
-    fun appendMusics(musics: List<Music>) {
-        val startIndex = playlist.size
-        val newMusics = musics - playlist.toSet()
-        playlist.addAll(newMusics)
-
-        if (isShuffleOn) {
-            shuffleManager.addNewIndices(startIndex, newMusics.size)
-        }
-    }
-
-    fun removeMusic(musicId: String): Music? {
-        val removeIndex = playlist.indexOfFirst { it.id == musicId }
-        if (removeIndex < 0) return null
-
-        val removedMusic = playlist[removeIndex]
-        val nextMusic = if (isShuffleOn) {
-            val nextShuffledIndex = shuffleManager.getNextIndex(currentIndex, repeatMode)
-                ?: shuffleManager.getPreviousIndex(currentIndex)
-            nextShuffledIndex?.let { playlist.getOrNull(it) }
-        } else {
-            playlist.getOrNull(removeIndex + 1) ?: playlist.getOrNull(removeIndex - 1)
+    var currentIndex: Int
+        get() = state.currentIndex
+        private set(value) {
+            state.setCurrentIndex(value)
         }
 
-        playlist.removeAt(removeIndex)
-
-        if (isShuffleOn) {
-            shuffleManager.removeIndex(removeIndex)
+    var repeatMode: RepeatMode
+        get() = state.repeatMode
+        private set(value) {
+            state.setRepeatMode(value)
         }
 
-        if (removeIndex == currentIndex) {
-            currentIndex = nextMusic?.let { playlist.indexOf(it) } ?: 0
-        } else if (removeIndex < currentIndex) {
-            currentIndex--
+    var isShuffleOn: Boolean
+        get() = state.isShuffleOn
+        private set(value) {
+            state.setShuffleMode(value)
         }
 
-        return nextMusic
+    fun getCurrentMusic(): Music? = state.getCurrentMusic()
+    fun getPlaylist(): List<Music> = state.getPlaylist()
+
+    fun updatePlaylist(musics: List<Music>, startIndex: Int) = state.updatePlaylist(musics, startIndex)
+
+    fun appendMusics(musics: List<Music>) = state.appendMusics(musics)
+
+    fun removeMusic(musicId: String): Music? = when (val result = removeMusicWithResult(musicId)) {
+        is PlaylistRemovalResult.RemovedCurrent -> result.replacementMusic
+        is PlaylistRemovalResult.RemovedNonCurrent,
+        PlaylistRemovalResult.NotFound,
+        PlaylistRemovalResult.PlaylistBecameEmpty -> null
     }
 
-    fun setShuffleMode(isOn: Boolean) {
-        if (this.isShuffleOn != isOn) {
-            this.isShuffleOn = isOn
-            if (isOn) {
-                shuffleManager.updateShuffleIndices(currentIndex, playlist.size)
-            }
-        }
-    }
+    internal fun removeMusicWithResult(musicId: String): PlaylistRemovalResult = state.removeMusic(musicId)
 
-    fun setRepeatMode(mode: RepeatMode) {
-        this.repeatMode = mode
-    }
+    fun setShuffleMode(isOn: Boolean) = state.setShuffleMode(isOn)
 
-    fun moveMediaItem(fromIndex: Int, toIndex: Int) {
-        val currentMusicId = playlist[currentIndex].id
-        playlist.reorder(fromIndex, toIndex)
-        currentIndex = playlist.indexOfFirst { it.id == currentMusicId }
-    }
+    fun setRepeatMode(mode: RepeatMode) = state.setRepeatMode(mode)
 
-    fun replaceMusic(index: Int, music: Music) {
-        if (index in 0..playlist.lastIndex) {
-            playlist[index] = music
-        }
-    }
+    fun moveMediaItem(fromIndex: Int, toIndex: Int) = state.moveMediaItem(fromIndex, toIndex)
 
-    fun getNextIndex(): Int? = when {
-        playlist.isEmpty() -> null
-        isShuffleOn -> shuffleManager.getNextIndex(currentIndex, repeatMode)
-        else -> when {
-            currentIndex == playlist.lastIndex &&
-                    repeatMode == RepeatMode.REPEAT_MODE_OFF -> null
-            currentIndex == playlist.lastIndex -> 0
-            else -> currentIndex + 1
-        }
-    }
+    fun replaceMusic(index: Int, music: Music) = state.replaceMusic(index, music)
 
-    fun getPreviousIndex(): Int? = when {
-        isShuffleOn -> shuffleManager.getPreviousIndex(currentIndex)
-        currentIndex > 0 -> currentIndex - 1
-        else -> null
-    }
+    fun getNextIndex(): Int? = state.getNextIndex()
 
-    fun setCurrentIndex(index: Int) {
-        if (index in 0..playlist.lastIndex) {
-            currentIndex = index
-        }
-    }
+    fun getPreviousIndex(): Int? = state.getPreviousIndex()
 
-    fun clear() {
-        playlist.clear()
-        currentIndex = 0
-        repeatMode = RepeatMode.REPEAT_MODE_OFF
-        isShuffleOn = false
-        shuffleManager.clear()
-    }
+    fun setCurrentIndex(index: Int) = state.setCurrentIndex(index)
 
-    fun hasNext(): Boolean = when {
-        isShuffleOn -> currentIndex < playlist.lastIndex
-        else -> currentIndex < playlist.lastIndex
-    } || repeatMode == RepeatMode.REPEAT_MODE_ALL
+    fun clear() = state.clear()
 
-    fun hasPrevious(): Boolean = currentIndex > 0
+    fun hasNext(): Boolean = state.hasNext()
+    fun hasPrevious(): Boolean = state.hasPrevious()
 }
