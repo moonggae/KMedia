@@ -7,7 +7,6 @@ import io.github.moonggae.kmedia.model.PlayingStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +45,7 @@ internal class DefaultSleepTimerController(
     private val mediaPlaybackController: MediaPlaybackController,
     private val playbackState: StateFlow<PlaybackState>,
     private val scope: CoroutineScope,
+    private val timerClock: SleepTimerClock = MonotonicSleepTimerClock,
 ) : SleepTimerController {
     private val _state = MutableStateFlow(SleepTimerState())
     override val state: StateFlow<SleepTimerState> = _state.asStateFlow()
@@ -90,10 +90,10 @@ internal class DefaultSleepTimerController(
     }
 
     private suspend fun runDurationTimer(durationMs: Long) {
-        val mark = TimeSource.Monotonic.markNow()
+        val mark = timerClock.markNow()
 
         while (currentCoroutineContext().isActive) {
-            val elapsedMs = mark.elapsedNow().inWholeMilliseconds
+            val elapsedMs = mark.elapsedMs()
             val remainingMs = (durationMs - elapsedMs).coerceAtLeast(0L)
 
             _state.update { state ->
@@ -109,7 +109,7 @@ internal class DefaultSleepTimerController(
                 return
             }
 
-            delay(minOf(DURATION_TICK_MS, remainingMs))
+            timerClock.delay(minOf(DURATION_TICK_MS, remainingMs))
         }
     }
 
@@ -134,7 +134,7 @@ internal class DefaultSleepTimerController(
                 return
             }
 
-            delay(END_OF_TRACK_POLLING_MS)
+            timerClock.delay(END_OF_TRACK_POLLING_MS)
         }
     }
 
@@ -153,7 +153,7 @@ internal class DefaultSleepTimerController(
                     mediaPlaybackController.setVolume(nextVolume, ANDROID_VOLUME_FLAGS)
 
                     if (index < fadeSteps - 1) {
-                        delay(FADE_OUT_STEP_MS)
+                        timerClock.delay(FADE_OUT_STEP_MS)
                     }
                 }
             }
@@ -201,5 +201,28 @@ internal class DefaultSleepTimerController(
         private const val MIN_FADE_VOLUME = 0.01f
 
         private const val ANDROID_VOLUME_FLAGS = 0
+    }
+}
+
+internal interface SleepTimerClock {
+    fun markNow(): SleepTimerMark
+
+    suspend fun delay(durationMs: Long)
+}
+
+internal interface SleepTimerMark {
+    fun elapsedMs(): Long
+}
+
+private object MonotonicSleepTimerClock : SleepTimerClock {
+    override fun markNow(): SleepTimerMark {
+        val mark = TimeSource.Monotonic.markNow()
+        return object : SleepTimerMark {
+            override fun elapsedMs(): Long = mark.elapsedNow().inWholeMilliseconds
+        }
+    }
+
+    override suspend fun delay(durationMs: Long) {
+        kotlinx.coroutines.delay(durationMs)
     }
 }
