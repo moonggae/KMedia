@@ -2,7 +2,6 @@ package io.github.moonggae.kmedia.util
 
 import android.net.Uri
 import androidx.annotation.OptIn
-import androidx.core.net.toFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -26,7 +25,7 @@ internal fun Music.asMediaItem(): MediaItem {
                 .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
                 .setArtist(artist)
                 .setTitle(title)
-                .setArtworkUri(Uri.parse(coverUrl))
+                .setArtworkUri(coverUrl?.takeIf { it.isNotBlank() }?.let(Uri::parse))
                 .setIsPlayable(true)
                 .setIsBrowsable(true)
                 .build()
