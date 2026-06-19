@@ -15,7 +15,6 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.asDeferred
 
 internal class PlatformMediaPlaybackController(
@@ -34,7 +33,6 @@ internal class PlatformMediaPlaybackController(
     private val commandController = ScopedMediaPlaybackCommandController(
         targetProvider = { AndroidMediaPlaybackCommandTarget(activeControllerDeferred.await()) },
         scope = scope,
-        onRelease = { scope.cancel() },
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)

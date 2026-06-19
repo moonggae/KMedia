@@ -64,19 +64,24 @@ class ScopedMediaPlaybackCommandControllerTest {
     }
 
     @Test
-    fun releaseStopsClearsReleasesAndRunsReleaseHook() {
+    fun releaseStopsClearsReleasesTarget() {
         val target = RecordingCommandTarget()
-        var releaseHookCalled = false
-        val controller = ScopedMediaPlaybackCommandController(
-            targetProvider = { target },
-            scope = scope,
-            onRelease = { releaseHookCalled = true },
-        )
+        val controller = controller(target)
 
         controller.release()
 
         assertEquals(listOf("stop", "clearMediaItems", "release"), target.calls)
-        assertTrue(releaseHookCalled)
+    }
+
+    @Test
+    fun commandsCanRunAfterRelease() {
+        val target = RecordingCommandTarget()
+        val controller = controller(target)
+
+        controller.release()
+        controller.play()
+
+        assertEquals(listOf("stop", "clearMediaItems", "release", "play"), target.calls)
     }
 
     @Test

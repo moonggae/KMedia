@@ -8,7 +8,6 @@ import kotlinx.coroutines.launch
 internal class ScopedMediaPlaybackCommandController(
     private val targetProvider: suspend () -> MediaPlaybackCommandTarget,
     private val scope: CoroutineScope,
-    private val onRelease: () -> Unit = {},
 ) : MediaPlaybackController, MediaPlaybackControllerReleaser {
     override fun seekTo(positionMs: Long) = execute { target ->
         target.seekTo(positionMs)
@@ -88,7 +87,6 @@ internal class ScopedMediaPlaybackCommandController(
         target.stop()
         target.clearMediaItems()
         target.release()
-        onRelease()
     }
 
     private inline fun execute(crossinline action: suspend (MediaPlaybackCommandTarget) -> Unit) {
