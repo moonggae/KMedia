@@ -12,6 +12,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -40,4 +41,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":kmedia-sample"))
     implementation(libs.androidx.activity.compose)
+
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

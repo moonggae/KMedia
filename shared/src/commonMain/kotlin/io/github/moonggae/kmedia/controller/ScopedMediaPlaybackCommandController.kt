@@ -4,11 +4,15 @@ import io.github.moonggae.kmedia.model.Music
 import io.github.moonggae.kmedia.model.RepeatMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class ScopedMediaPlaybackCommandController(
     private val targetProvider: suspend () -> MediaPlaybackCommandTarget,
     private val scope: CoroutineScope,
 ) : MediaPlaybackController, MediaPlaybackControllerReleaser {
+    private val commandMutex = Mutex()
+
     override fun seekTo(positionMs: Long) = execute { target ->
         target.seekTo(positionMs)
     }
@@ -60,6 +64,7 @@ internal class ScopedMediaPlaybackCommandController(
 
     override fun stop() = execute { target ->
         target.stop()
+        target.clearMediaItems()
         target.release()
     }
 
@@ -91,7 +96,9 @@ internal class ScopedMediaPlaybackCommandController(
 
     private inline fun execute(crossinline action: suspend (MediaPlaybackCommandTarget) -> Unit) {
         scope.launch {
-            action(targetProvider())
+            commandMutex.withLock {
+                action(targetProvider())
+            }
         }
     }
 }

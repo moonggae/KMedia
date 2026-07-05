@@ -18,8 +18,11 @@ internal class PlaybackResumeStore(
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private var lastSavedSnapshot: PlaybackResumeSnapshot? = null
     private var lastSavedElapsedMs: Long = 0L
+    private var savingSuppressed = false
 
     fun save(player: Player, force: Boolean = false) {
+        if (savingSuppressed) return
+
         if (player.hasProtectedMediaItems()) {
             clear()
             return
@@ -48,6 +51,20 @@ internal class PlaybackResumeStore(
     }
 
     fun clear() {
+        clearSnapshot()
+        savingSuppressed = false
+    }
+
+    fun clearForExplicitStop() {
+        clearSnapshot()
+        savingSuppressed = true
+    }
+
+    fun allowSaving() {
+        savingSuppressed = false
+    }
+
+    private fun clearSnapshot() {
         prefs.edit().remove(KEY_SNAPSHOT).apply()
         lastSavedSnapshot = null
         lastSavedElapsedMs = 0L

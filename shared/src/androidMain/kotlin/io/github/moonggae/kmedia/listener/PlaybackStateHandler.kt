@@ -6,6 +6,7 @@ import androidx.media3.common.Timeline
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
+import io.github.moonggae.kmedia.model.emptyPlaybackState
 import io.github.moonggae.kmedia.session.PlaybackResumeStore
 import io.github.moonggae.kmedia.state.PlaybackStateManager
 import io.github.moonggae.kmedia.util.asMusic
@@ -96,8 +97,14 @@ internal class PlaybackStateHandler(
     }
 
     private fun updatePlayState() {
+        val currentMediaItem = player.currentMediaItem
+        if (currentMediaItem == null) {
+            playbackStateManager.playbackState = currentEmptyPlaybackState()
+            return
+        }
+
         playbackStateManager.playbackState = PlaybackState(
-            music = player.currentMediaItem?.asMusic(),
+            music = currentMediaItem.asMusic(),
             playingStatus = player.playingStatus,
             currentIndex = player.currentMediaItemIndex,
             hasPrevious = player.hasPreviousMediaItem(),
@@ -111,6 +118,11 @@ internal class PlaybackStateHandler(
         )
         playbackResumeStore.save(player)
     }
+
+    private fun currentEmptyPlaybackState() = emptyPlaybackState(
+        isMuted = player.isDeviceMuted,
+        volume = player.normalizedVolume
+    )
 }
 
 private val Player.normalizedVolume: Float
