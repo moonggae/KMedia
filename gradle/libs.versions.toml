@@ -1,7 +1,7 @@
 [versions]
 android-compileSdk = "36"
 android-minSdk = "28"
-publish = "0.0.9"
+publish = "0.1.0"
 spmForKmp="1.9.2"
 
 agp = "9.0.1"
