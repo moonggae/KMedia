@@ -54,13 +54,13 @@ class ScopedMediaPlaybackCommandControllerTest {
     }
 
     @Test
-    fun stopStopsAndReleasesTarget() {
+    fun stopStopsClearsAndReleasesTarget() {
         val target = RecordingCommandTarget()
         val controller = controller(target)
 
         controller.stop()
 
-        assertEquals(listOf("stop", "release"), target.calls)
+        assertEquals(listOf("stop", "clearMediaItems", "release"), target.calls)
     }
 
     @Test
@@ -79,6 +79,17 @@ class ScopedMediaPlaybackCommandControllerTest {
         val controller = controller(target)
 
         controller.release()
+        controller.play()
+
+        assertEquals(listOf("stop", "clearMediaItems", "release", "play"), target.calls)
+    }
+
+    @Test
+    fun commandsCanRunAfterStop() {
+        val target = RecordingCommandTarget()
+        val controller = controller(target)
+
+        controller.stop()
         controller.play()
 
         assertEquals(listOf("stop", "clearMediaItems", "release", "play"), target.calls)

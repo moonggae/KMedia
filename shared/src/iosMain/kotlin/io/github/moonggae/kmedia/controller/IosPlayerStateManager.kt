@@ -20,6 +20,7 @@ import platform.AVFoundation.muted
 import platform.AVFoundation.pause
 import platform.AVFoundation.play
 import platform.AVFoundation.rate
+import platform.AVFoundation.replaceCurrentItemWithPlayerItem
 import platform.AVFoundation.seekToTime
 import platform.AVFoundation.setMuted
 import platform.AVFoundation.timeControlStatus
@@ -64,8 +65,17 @@ class IosPlayerStateManager(coroutineScope: CoroutineScope) {
     fun stop() {
         player.pause()
         playbackTimeObserverManager.cleanup()
-        musicStatusObserverManager.cleanup()
         musicCompleteTimeObserverManager.cleanup()
+        clearCurrentItem()
+    }
+
+    fun clearCurrentItem() {
+        musicStatusObserverManager.cleanup()
+        player.replaceCurrentItemWithPlayerItem(null)
+    }
+
+    fun replaceCurrentItem(item: AVPlayerItem) {
+        player.replaceCurrentItemWithPlayerItem(item)
     }
 
     fun setPosition(positionMs: Long) {

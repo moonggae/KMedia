@@ -16,6 +16,7 @@ import io.github.moonggae.kmedia.model.Music
 import io.github.moonggae.kmedia.model.PlaybackState
 import io.github.moonggae.kmedia.model.PlayingStatus
 import io.github.moonggae.kmedia.model.RepeatMode
+import io.github.moonggae.kmedia.model.emptyPlaybackState
 import io.github.moonggae.kmedia.session.PlaybackStateObserverManager
 import io.github.moonggae.kmedia.state.PlaybackStateManager
 import io.github.moonggae.kmedia.util.sanitizedRequestHeaders
@@ -29,8 +30,6 @@ import platform.AVFoundation.AVKeyValueStatusLoaded
 import platform.AVFoundation.AVPlayerItem
 import platform.AVFoundation.AVURLAsset
 import platform.AVFoundation.AVURLAssetPreferPreciseDurationAndTimingKey
-import platform.AVFoundation.currentItem
-import platform.AVFoundation.replaceCurrentItemWithPlayerItem
 import platform.Foundation.NSURL
 
 @OptIn(ExperimentalForeignApi::class)
@@ -68,6 +67,7 @@ internal class PlatformMediaPlaybackController(
 
     private var isLoading = false
     private var initialized = false
+    private var playbackRequestVersion = 0
 
     override fun prepare(musics: List<Music>, index: Int, positionMs: Long) {
         if (initialized == false) {
@@ -90,35 +90,37 @@ internal class PlatformMediaPlaybackController(
     }
 
     private fun setMusic(music: Music, playImmediately: Boolean = true) {
+        val requestVersion = nextPlaybackRequestVersion()
         scope.launch {
+            if (!isActivePlaybackRequest(requestVersion)) return@launch
             prepareMusic()
-            playMusic(music, playImmediately)
+            if (!isActivePlaybackRequest(requestVersion)) return@launch
+            playMusic(music, playImmediately, requestVersion)
         }
     }
 
     private fun prepareMusic() {
         isLoading = true
-        updatePlaybackState()
         cleanupCurrentItem()
+        updatePlaybackState()
     }
 
     private fun cleanupCurrentItem() {
-        playerStateManager.player.replaceCurrentItemWithPlayerItem(null)
-        playerStateManager.player.currentItem?.let {
-            playerStateManager.cleanup()
-        }
+        playerStateManager.clearCurrentItem()
     }
 
-    private fun playMusic(music: Music, playImmediately: Boolean) {
+    private fun playMusic(music: Music, playImmediately: Boolean, requestVersion: Int) {
+        if (!isActivePlaybackRequest(requestVersion)) return
+
         val nsUrl = NSURL(string = music.uri)
         val streamingAsset = createStreamingAsset(nsUrl, music.requestHeaders)
 
         if (!cacheRepository.enableCache) {
-            prepareAndPlay(streamingAsset, music, playImmediately)
+            prepareAndPlay(streamingAsset, music, playImmediately, requestVersion)
             return
         }
 
-        handleCaching(nsUrl, streamingAsset, music, playImmediately)
+        handleCaching(nsUrl, streamingAsset, music, playImmediately, requestVersion)
     }
 
     private fun createStreamingAsset(
@@ -145,6 +147,7 @@ internal class PlatformMediaPlaybackController(
         streamingAsset: AVURLAsset,
         music: Music,
         playImmediately: Boolean,
+        requestVersion: Int,
     ) {
         cachingLoader.loadFileWithCaching(
             url = nsUrl,
@@ -152,7 +155,8 @@ internal class PlatformMediaPlaybackController(
             requestHeaders = music.requestHeaders,
             onCompleteCaching = { handleCachingComplete(music) }
         ) { asset ->
-            handleCachingResult(asset, streamingAsset, music, playImmediately)
+            if (!isActivePlaybackRequest(requestVersion)) return@loadFileWithCaching
+            handleCachingResult(asset, streamingAsset, music, playImmediately, requestVersion)
         }
     }
 
@@ -161,20 +165,24 @@ internal class PlatformMediaPlaybackController(
         streamingAsset: AVURLAsset,
         music: Music,
         playImmediately: Boolean,
+        requestVersion: Int,
     ) {
+        if (!isActivePlaybackRequest(requestVersion)) return
+
         if (asset == null) {
-            handleCachingFailure(streamingAsset, music, playImmediately)
+            handleCachingFailure(streamingAsset, music, playImmediately, requestVersion)
             return
         }
-        prepareAndPlay(asset, music, playImmediately)
+        prepareAndPlay(asset, music, playImmediately, requestVersion)
     }
 
     private fun handleCachingFailure(
         streamingAsset: AVURLAsset,
         music: Music,
         playImmediately: Boolean,
+        requestVersion: Int,
     ) {
-        prepareAndPlay(streamingAsset, music, playImmediately)
+        prepareAndPlay(streamingAsset, music, playImmediately, requestVersion)
         scope.launch(Dispatchers.IO) {
             cacheStatusStore.update(music.cacheKey, CacheStatus.NONE)
         }
@@ -192,24 +200,32 @@ internal class PlatformMediaPlaybackController(
         asset: AVURLAsset,
         music: Music,
         playImmediately: Boolean,
+        requestVersion: Int,
     ) {
         asset.loadValuesAsynchronouslyForKeys(keys = listOf("playable")) {
+            if (!isActivePlaybackRequest(requestVersion)) return@loadValuesAsynchronouslyForKeys
+
             if (asset.statusOfValueForKey("playable", null) == AVKeyValueStatusLoaded) {
                 val newItem = AVPlayerItem(asset)
 
-                playerStateManager.player.replaceCurrentItemWithPlayerItem(newItem)
+                playerStateManager.replaceCurrentItem(newItem)
                 analyticsManager.startTracking(music)
                 updatePlaybackState()
 
                 playerStateManager.setupMusicStatusObserver(
                     item = newItem,
-                    onReadyToPlay = {
+                    onReadyToPlay = onReady@{
+                        if (!isActivePlaybackRequest(requestVersion)) return@onReady
                         isLoading = false
                         if (playImmediately) {
                             playerStateManager.play()
                         }
                     },
-                    onPlaybackStateChanged = ::updatePlaybackState
+                    onPlaybackStateChanged = {
+                        if (isActivePlaybackRequest(requestVersion)) {
+                            updatePlaybackState()
+                        }
+                    }
                 )
             } else {
                 // fallback: 다음 곡으로
@@ -284,6 +300,7 @@ internal class PlatformMediaPlaybackController(
     }
 
     override fun stop() {
+        invalidatePlaybackRequests()
         analyticsManager.stopTracking()
         releaseController()
         updatePlaybackState()
@@ -301,9 +318,10 @@ internal class PlatformMediaPlaybackController(
     }
 
     private fun releaseController() {
-        playerStateManager.stop()
-        playlistManager.clear()
+        isLoading = false
         eventManager.stopObserving()
+        playlistManager.clear()
+        playerStateManager.stop()
         controlCenterManager.release()
         initialized = false
     }
@@ -374,10 +392,16 @@ internal class PlatformMediaPlaybackController(
     }
 
     private fun updatePlaybackState() {
+        val currentMusic = playlistManager.getCurrentMusic()
+        if (currentMusic == null) {
+            playbackStateManager.playbackState = currentEmptyPlaybackState()
+            return
+        }
+
         val currentSeconds = playerStateManager.getCurrentPosition()
         val durationSeconds = playerStateManager.getDuration()
         val state = PlaybackState(
-            music = playlistManager.getCurrentMusic(),
+            music = currentMusic,
             playingStatus = if (isLoading) PlayingStatus.BUFFERING else playerStateManager.currentPlaybackStatus,
             currentIndex = playlistManager.currentIndex,
             hasPrevious = playlistManager.hasPrevious(),
@@ -392,9 +416,25 @@ internal class PlatformMediaPlaybackController(
         playbackStateManager.playbackState = state
 
         // 현재 재생 중인 곡의 정보로 제어 센터 업데이트
-        playlistManager.getCurrentMusic()?.let { music ->
-            controlCenterManager.updatePlaybackState(music, state)
-        }
+        controlCenterManager.updatePlaybackState(currentMusic, state)
+    }
+
+    private fun currentEmptyPlaybackState() = emptyPlaybackState(
+        isMuted = playerStateManager.isMuted,
+        volume = playerStateManager.volume
+    )
+
+    private fun nextPlaybackRequestVersion(): Int {
+        playbackRequestVersion += 1
+        return playbackRequestVersion
+    }
+
+    private fun invalidatePlaybackRequests() {
+        playbackRequestVersion += 1
+    }
+
+    private fun isActivePlaybackRequest(requestVersion: Int): Boolean {
+        return requestVersion == playbackRequestVersion
     }
 }
 

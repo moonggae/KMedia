@@ -7,6 +7,7 @@ import androidx.media3.session.SessionToken
 import io.github.moonggae.kmedia.model.Music
 import io.github.moonggae.kmedia.model.RepeatMode
 import io.github.moonggae.kmedia.session.PlaybackService
+import io.github.moonggae.kmedia.session.PlaybackResumeStore
 import io.github.moonggae.kmedia.util.asMediaItem
 import io.github.moonggae.kmedia.util.getMediaItemIndex
 import io.github.moonggae.kmedia.util.mediaItems
@@ -19,6 +20,7 @@ import kotlinx.coroutines.guava.asDeferred
 
 internal class PlatformMediaPlaybackController(
     private val context: Context,
+    private val playbackResumeStore: PlaybackResumeStore,
 ) : MediaPlaybackController, MediaPlaybackControllerReleaser {
     private var controllerDeferred: Deferred<MediaController> = newControllerAsync()
 
@@ -31,7 +33,12 @@ internal class PlatformMediaPlaybackController(
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val commandController = ScopedMediaPlaybackCommandController(
-        targetProvider = { AndroidMediaPlaybackCommandTarget(activeControllerDeferred.await()) },
+        targetProvider = {
+            AndroidMediaPlaybackCommandTarget(
+                controller = activeControllerDeferred.await(),
+                playbackResumeStore = playbackResumeStore,
+            )
+        },
         scope = scope,
     )
 
@@ -94,6 +101,7 @@ internal class PlatformMediaPlaybackController(
 
 private class AndroidMediaPlaybackCommandTarget(
     private val controller: MediaController,
+    private val playbackResumeStore: PlaybackResumeStore,
 ) : MediaPlaybackCommandTarget {
     override suspend fun seekTo(positionMs: Long) {
         controller.seekTo(positionMs)
@@ -136,6 +144,7 @@ private class AndroidMediaPlaybackCommandTarget(
     }
 
     override suspend fun prepare(musics: List<Music>, index: Int, positionMs: Long) {
+        playbackResumeStore.allowSaving()
         controller.setMediaItems(musics.map { it.asMediaItem() }, index, positionMs)
         controller.prepare()
     }
@@ -145,6 +154,7 @@ private class AndroidMediaPlaybackCommandTarget(
     }
 
     override suspend fun appendMusics(musics: List<Music>) {
+        playbackResumeStore.allowSaving()
         controller.addMediaItems(musics.map { it.asMediaItem() })
     }
 
@@ -176,6 +186,7 @@ private class AndroidMediaPlaybackCommandTarget(
     }
 
     override suspend fun clearMediaItems() {
+        playbackResumeStore.clearForExplicitStop()
         controller.clearMediaItems()
     }
 
