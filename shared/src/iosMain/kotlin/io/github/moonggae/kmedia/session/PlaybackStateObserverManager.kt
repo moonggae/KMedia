@@ -22,7 +22,7 @@ class PlaybackStateObserverManager(
     private val onPlaybackStateChanged: () -> Unit
 ) {
     private var timeControlStatusObserver = createTimeControlStatusObserver()
-
+    private var isObserving = false
     private fun createTimeControlStatusObserver() = object : NSObject(), NSKeyValueObservingProtocol {
         override fun observeValueForKeyPath(
             keyPath: String?,
@@ -46,18 +46,23 @@ class PlaybackStateObserverManager(
     }
 
     fun startObserving() {
+        if (isObserving) return
         player.addObserver(
             observer = timeControlStatusObserver,
             forKeyPath = "timeControlStatus",
             options = NSKeyValueObservingOptionNew,
             context = null
         )
+        isObserving = true
     }
 
     fun stopObserving() {
+        if (!isObserving) return
         player.removeObserver(
             observer = timeControlStatusObserver,
             forKeyPath = "timeControlStatus"
         )
+        isObserving = false
+        timeControlStatusObserver = createTimeControlStatusObserver()
     }
 }
